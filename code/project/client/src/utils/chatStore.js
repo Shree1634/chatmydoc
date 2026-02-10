@@ -23,6 +23,7 @@ const useChatStore = create((set, get) => ({
   pdfs: [],
   isLoading: false,
   isUploading: false,
+<<<<<<< HEAD
   isUploading: false,
   uploadProgress: 0,
   error: null,
@@ -46,6 +47,16 @@ const useChatStore = create((set, get) => ({
       const message = get().getErrorMessage(error);
       console.error('Failed to fetch PDFs:', message);
       set({ error: message });
+=======
+  uploadProgress: 0,
+
+  fetchPDFs: async (userId) => {
+    try {
+      const { data } = await api.get(`/api/pdfs/${userId}/pdfs`);
+      set({ pdfs: data.data });
+    } catch (error) {
+      console.error('Failed to fetch PDFs:', error.response?.data || error.message);
+>>>>>>> 535b24171ee6a745f7f6f24d151e85dcb019a0fe
     }
   },
 
@@ -79,9 +90,14 @@ const useChatStore = create((set, get) => ({
 
       return data.data;
     } catch (error) {
+<<<<<<< HEAD
       const errorMessage = error.response?.data?.message || error.response?.data?.error || error.message || 'Failed to upload PDF';
       console.error('Failed to upload PDF:', errorMessage);
       throw new Error(errorMessage);
+=======
+      console.error('Failed to upload PDF:', error.response?.data || error.message);
+      throw error;
+>>>>>>> 535b24171ee6a745f7f6f24d151e85dcb019a0fe
     } finally {
       set({ isUploading: false, uploadProgress: 0 });
     }
@@ -89,16 +105,23 @@ const useChatStore = create((set, get) => ({
 
   deletePDF: async (pdfId) => {
     try {
+<<<<<<< HEAD
       set({ error: null });
+=======
+>>>>>>> 535b24171ee6a745f7f6f24d151e85dcb019a0fe
       await api.delete(`/api/pdfs/${pdfId}`);
       set(state => ({
         pdfs: state.pdfs.filter(pdf => pdf._id !== pdfId),
         currentPdf: state.currentPdf?._id === pdfId ? null : state.currentPdf
       }));
     } catch (error) {
+<<<<<<< HEAD
       const message = get().getErrorMessage(error);
       console.error('Failed to delete PDF:', message);
       set({ error: message });
+=======
+      console.error('Failed to delete PDF:', error.response?.data || error.message);
+>>>>>>> 535b24171ee6a745f7f6f24d151e85dcb019a0fe
     }
   },
 
@@ -118,6 +141,7 @@ const useChatStore = create((set, get) => ({
         messages: [...state.messages, { type: 'bot', content: data.data.response }]
       }));
     } catch (error) {
+<<<<<<< HEAD
       const message = get().getErrorMessage(error);
       console.error('Failed to get answer:', message);
       set({ error: message });
@@ -126,6 +150,9 @@ const useChatStore = create((set, get) => ({
       set(state => ({
         messages: [...state.messages, { type: 'error', content: `Error: ${message}` }]
       }));
+=======
+      console.error('Failed to get answer:', error.response?.data || error.message);
+>>>>>>> 535b24171ee6a745f7f6f24d151e85dcb019a0fe
     } finally {
       set({ isLoading: false });
     }

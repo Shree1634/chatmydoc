@@ -7,6 +7,7 @@ const PDFUploader = () => {
   const { currentPdf, uploadPDF, isUploading, uploadProgress } = useChatStore();
   const user = JSON.parse(localStorage.getItem('user'));
 
+<<<<<<< HEAD
   const [uploadError, setUploadError] = React.useState(null);
 
   const onDrop = useCallback(async (acceptedFiles) => {
@@ -20,6 +21,12 @@ const PDFUploader = () => {
       }
     } else if (file) {
       setUploadError("Please upload a valid PDF file");
+=======
+  const onDrop = useCallback(async (acceptedFiles) => {
+    const file = acceptedFiles[0];
+    if (file?.type === 'application/pdf' && user) {
+      await uploadPDF(file, user.id);
+>>>>>>> 535b24171ee6a745f7f6f24d151e85dcb019a0fe
     }
   }, [uploadPDF, user]);
 
@@ -50,6 +57,7 @@ const PDFUploader = () => {
 
   return (
     <div className="w-full max-w-2xl mx-auto mb-8">
+<<<<<<< HEAD
       {uploadError && (
         <div className="bg-red-500/10 border border-red-500 text-red-500 rounded-lg p-4 mb-4 flex justify-between items-center">
           <span>{uploadError}</span>
@@ -58,6 +66,8 @@ const PDFUploader = () => {
           </button>
         </div>
       )}
+=======
+>>>>>>> 535b24171ee6a745f7f6f24d151e85dcb019a0fe
       {!currentPdf ? (
         <div
           {...getRootProps()}

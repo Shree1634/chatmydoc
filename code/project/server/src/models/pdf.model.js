@@ -22,10 +22,13 @@ const PDFSchema = new mongoose.Schema(
             type: String,
             required: [true, "Cloudinary URL is required"]
         },
+<<<<<<< HEAD
         size: {
             type: Number,
             required: [true, "File size is required"]
         },
+=======
+>>>>>>> 535b24171ee6a745f7f6f24d151e85dcb019a0fe
         textContent: {
             type: String,
             select: false
