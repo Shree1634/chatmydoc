@@ -20,19 +20,18 @@ export const uploadPDF = async (req, res) => {
             return res.status(400).json({ success: false, message: 'No file uploaded' });
         }
 
-        // Upload to Cloudinary
-        console.log("[uploadPDF] Uploading to Cloudinary:", req.file.originalname);
-        const result = await uploadPDFToCloudinary(req.file);
-        if (!result.success) {
-            console.error("[uploadPDF] Cloudinary upload failed:", result.error);
-            return res.status(400).json({ success: false, message: result.error });
-        }
+        // Note: File is already uploaded to Cloudinary by multer-storage-cloudinary middleware
+        // req.file contains the Cloudinary response details
+        console.log("[uploadPDF] File uploaded via middleware. Path/URL:", req.file.path);
 
         // Extract + preprocess text
         console.log("[uploadPDF] Extracting text...");
         let rawText = req.body.textContent || '';
+
+        // req.file.path from multer-storage-cloudinary is the Secure URL
         if (!rawText && req.file.path) {
             try {
+                // Now extractTextFromPDF handles URLs using axios
                 rawText = await extractTextFromPDF(req.file.path);
             } catch (ppErr) {
                 console.error("[uploadPDF] Extraction failed:", ppErr.message);
@@ -45,7 +44,8 @@ export const uploadPDF = async (req, res) => {
             user: req.body.userId,
             title: req.body.title || req.file.originalname,
             originalFilename: req.file.originalname,
-            url: result.url,
+            url: req.file.path, // Use the path/url from multer
+            size: req.file.size,
             textContent: cleanedText || ''
         });
 
@@ -169,38 +169,6 @@ export const summarizePDF = async (req, res) => {
     } catch (error) {
         console.error("[summarizePDF] Error:", error.message);
         res.status(500).json({ success: false, message: 'Failed to summarize PDF', error: error.message });
-    }
-};
-
-// =============================
-// Ask Question on PDF
-// =============================
-export const askQuestion = async (req, res) => {
-    console.log("[askQuestion] PDF:", req.params.id);
-    try {
-        if (!req.params.id) return res.status(400).json({ success: false, message: 'PDF ID required' });
-        if (!req.user?._id) return res.status(401).json({ success: false, message: 'Auth required' });
-
-        const { question } = req.body;
-        if (!question) return res.status(400).json({ success: false, message: 'Question required' });
-
-        const pdf = await PDF.findOne({ _id: req.params.id, user: req.user._id }).select('+textContent');
-        if (!pdf) return res.status(404).json({ success: false, message: 'PDF not found' });
-        if (!pdf.textContent) return res.status(400).json({ success: false, message: 'No text in PDF' });
-
-        const preprocessed = chunkText(cleanText(pdf.textContent));
-        const prompt = `Based on this text: "${preprocessed}", answer: ${question}`;
-
-        const result = await model.generateContent(prompt);
-        const response = result.response.text();
-
-        const chat = await Chat.create({ pdfId: pdf._id, userId: req.user._id, question, response });
-        await pdf.addChat(chat._id);
-
-        res.status(200).json({ success: true, data: chat });
-    } catch (error) {
-        console.error("[askQuestion] Error:", error.message);
-        res.status(500).json({ success: false, message: 'Failed to process question', error: error.message });
     }
 };
 

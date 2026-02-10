@@ -23,14 +23,29 @@ const useChatStore = create((set, get) => ({
   pdfs: [],
   isLoading: false,
   isUploading: false,
+  isUploading: false,
   uploadProgress: 0,
+  error: null,
+
+  setError: (error) => set({ error }),
+
+  // Helper to extract nice error messages
+  getErrorMessage: (error) => {
+    return error.response?.data?.message ||
+      error.response?.data?.error ||
+      error.message ||
+      'An unexpected error occurred';
+  },
 
   fetchPDFs: async (userId) => {
     try {
+      set({ error: null });
       const { data } = await api.get(`/api/pdfs/${userId}/pdfs`);
       set({ pdfs: data.data });
     } catch (error) {
-      console.error('Failed to fetch PDFs:', error.response?.data || error.message);
+      const message = get().getErrorMessage(error);
+      console.error('Failed to fetch PDFs:', message);
+      set({ error: message });
     }
   },
 
@@ -64,8 +79,9 @@ const useChatStore = create((set, get) => ({
 
       return data.data;
     } catch (error) {
-      console.error('Failed to upload PDF:', error.response?.data || error.message);
-      throw error;
+      const errorMessage = error.response?.data?.message || error.response?.data?.error || error.message || 'Failed to upload PDF';
+      console.error('Failed to upload PDF:', errorMessage);
+      throw new Error(errorMessage);
     } finally {
       set({ isUploading: false, uploadProgress: 0 });
     }
@@ -73,13 +89,16 @@ const useChatStore = create((set, get) => ({
 
   deletePDF: async (pdfId) => {
     try {
+      set({ error: null });
       await api.delete(`/api/pdfs/${pdfId}`);
       set(state => ({
         pdfs: state.pdfs.filter(pdf => pdf._id !== pdfId),
         currentPdf: state.currentPdf?._id === pdfId ? null : state.currentPdf
       }));
     } catch (error) {
-      console.error('Failed to delete PDF:', error.response?.data || error.message);
+      const message = get().getErrorMessage(error);
+      console.error('Failed to delete PDF:', message);
+      set({ error: message });
     }
   },
 
@@ -99,7 +118,14 @@ const useChatStore = create((set, get) => ({
         messages: [...state.messages, { type: 'bot', content: data.data.response }]
       }));
     } catch (error) {
-      console.error('Failed to get answer:', error.response?.data || error.message);
+      const message = get().getErrorMessage(error);
+      console.error('Failed to get answer:', message);
+      set({ error: message });
+
+      // Also add error message to chat for better UX
+      set(state => ({
+        messages: [...state.messages, { type: 'error', content: `Error: ${message}` }]
+      }));
     } finally {
       set({ isLoading: false });
     }

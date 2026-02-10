@@ -31,129 +31,156 @@ const getPreviousContext = async (pdfId, limit = 2) => {
 };
 
 // Ask question with context
+// Ask question with context
 export const askQuestion = async (req, res) => {
-    console.log("[askQuestion] Processing question request");
+    const STAGE = {
+        INIT: 'INITIALIZATION',
+        AUTH: 'AUTHENTICATION',
+        VALIDATION: 'REL_VALIDATION',
+        DB_FETCH: 'DB_FETCH_PDF',
+        CONTEXT_FETCH: 'DB_FETCH_CONTEXT',
+        AI_GEN: 'AI_GENERATION',
+        DB_SAVE: 'DB_SAVE_CHAT'
+    };
+
+    let currentStage = STAGE.INIT;
+    console.log(`[askQuestion] [${currentStage}] Starting request`);
+
     try {
-        // Input validation
-        if (!req.body.question || req.body.question.trim() === '') {
-            console.error("[askQuestion] No question provided in request");
-            return res.status(400).json({
-                success: false,
-                message: 'Question is required'
-            });
-        }
-
-        if (!req.params.pdfId) {
-            console.error("[askQuestion] No PDF ID provided in request");
-            return res.status(400).json({
-                success: false,
-                message: 'PDF ID is required'
-            });
-        }
-
-        if (!req.user?._id) {
-            console.error("[askQuestion] No user ID available in request");
+        // --- STAGE: AUTHENTICATION ---
+        currentStage = STAGE.AUTH;
+        if (!req.user || !req.user._id) {
+            console.error(`[askQuestion] [${currentStage}] failed: User not authenticated`);
             return res.status(401).json({
                 success: false,
-                message: 'User authentication required'
+                message: 'User authentication required',
+                stage: currentStage
             });
         }
 
+        // --- STAGE: INPUT VALIDATION ---
+        currentStage = STAGE.VALIDATION;
         const { question } = req.body;
-        const pdfId = req.params.pdfId;
+        const pdfId = req.params.pdfId || req.params.id;
 
-        console.log(`[askQuestion] Processing question: "${question}" for PDF: ${pdfId}`);
+        if (!question || question.trim() === '') {
+            return res.status(400).json({
+                success: false,
+                message: 'Question cannot be empty',
+                stage: currentStage
+            });
+        }
+        if (!pdfId) {
+            return res.status(400).json({
+                success: false,
+                message: 'PDF ID is required',
+                stage: currentStage
+            });
+        }
 
-        // Get PDF with text content
-        console.log(`[askQuestion] Fetching PDF document: ${pdfId}`);
+        console.log(`[askQuestion] [${currentStage}] Question: "${question.substring(0, 50)}..." | PDF: ${pdfId}`);
+
+        // --- STAGE: DB FETCH PDF ---
+        currentStage = STAGE.DB_FETCH;
         const pdf = await PDF.findOne({
             _id: pdfId,
             user: req.user._id
         }).select('+textContent');
 
         if (!pdf) {
-            console.error(`[askQuestion] PDF not found with ID: ${pdfId} for user: ${req.user._id}`);
+            console.warn(`[askQuestion] [${currentStage}] PDF not found: ${pdfId}`);
             return res.status(404).json({
                 success: false,
-                message: 'PDF not found'
+                message: 'PDF not found',
+                stage: currentStage
             });
         }
 
-        if (!pdf.textContent || pdf.textContent.trim() === '') {
-            console.error(`[askQuestion] PDF ${pdfId} has no text content to analyze`);
+        if (!pdf.textContent || pdf.textContent.trim().length < 10) {
+            console.warn(`[askQuestion] [${currentStage}] PDF empty or too short. Length: ${pdf.textContent?.length}`);
             return res.status(400).json({
                 success: false,
-                message: 'PDF has no text content to analyze'
+                message: 'The PDF content is empty or too short to analyze.',
+                stage: currentStage
             });
         }
 
-        // Get previous context
-        console.log(`[askQuestion] Retrieving conversation history for PDF: ${pdfId}`);
+        // --- STAGE: DB FETCH CONTEXT ---
+        currentStage = STAGE.CONTEXT_FETCH;
         const previousContext = await getPreviousContext(pdfId);
 
-        // Construct prompt with context
-        console.log(`[askQuestion] Constructing AI prompt`);
-        const prompt = `Context from PDF: "${pdf.textContent}"
-        Previous conversation:
+        // --- STAGE: AI GENERATION ---
+        currentStage = STAGE.AI_GEN;
+
+        // Sanity Check: Ensure API Key exists
+        if (!process.env.GEMINI_API_KEY) {
+            throw new Error("Server misconfiguration: GEMINI_API_KEY is missing");
+        }
+
+        const prompt = `
+        You are an intelligent PDF assistant. Use the following context to answer the user's question.
+        
+        CONTEXT FROM PDF:
+        "${pdf.textContent.substring(0, 30000)}" 
+        
+        PREVIOUS CONVERSATION:
         ${previousContext}
+        
+        USER QUESTION: 
+        ${question}
+        
+        INSTRUCTIONS:
+        - Answer based ONLY on the provided Context.
+        - If the answer is not in the context, politely say you don't know based on the document.
+        - Keep the answer concise and helpful.
+        `;
 
-        Current question: ${question}
-
-        Please provide a detailed answer to the current question based on the PDF content and previous conversation context.`;
-
-        // Generate response
-        console.log(`[askQuestion] Sending prompt to Gemini AI`);
+        let responseText = "";
         try {
             const result = await model.generateContent(prompt);
-            const response = result.response.text();
-            console.log(`[askQuestion] Successfully received AI response`);
+            const response = await result.response;
+            responseText = response.text();
 
-            // Save chat
-            console.log(`[askQuestion] Saving chat to database`);
-            const chat = await Chat.create({
-                pdfId: pdf._id,
-                userId: req.user._id,
-                question,
-                response
-            });
-            console.log(`[askQuestion] Chat saved with ID: ${chat._id}`);
-
-            // Add chat to PDF
-            console.log(`[askQuestion] Adding chat to PDF's chat history`);
-            await pdf.addChat(chat._id);
-            console.log(`[askQuestion] Chat added to PDF successfully`);
-
-            res.status(200).json({
-                success: true,
-                data: chat
-            });
+            if (!responseText) throw new Error("AI returned empty response");
         } catch (aiError) {
-            console.error("[askQuestion] AI processing error:", {
-                message: aiError.message,
-                stack: aiError.stack,
-                name: aiError.name
-            });
+            console.error(`[askQuestion] [${currentStage}] Gemini API Error:`, aiError.message);
+            // Distinguish between block/safety vs network
+            let userMsg = "Failed to generate answer from AI.";
+            if (aiError.message.includes("SAFETY")) userMsg = "The response was blocked due to safety settings.";
+            if (aiError.message.includes("API key")) userMsg = "Service configuration error (API Key).";
 
-            res.status(500).json({
+            return res.status(503).json({
                 success: false,
-                message: 'Failed to process question with AI',
-                error: aiError.message
+                message: userMsg,
+                error: aiError.message,
+                stage: currentStage
             });
         }
-    } catch (error) {
-        console.error("[askQuestion] Unexpected error:", {
-            pdfId: req.params.pdfId,
-            userId: req.user?._id,
-            question: req.body?.question,
-            message: error.message,
-            stack: error.stack,
-            name: error.name
+
+        // --- STAGE: DB SAVE CHAT ---
+        currentStage = STAGE.DB_SAVE;
+        const chat = await Chat.create({
+            pdfId: pdf._id,
+            userId: req.user._id,
+            question,
+            response: responseText
         });
 
+        await pdf.addChat(chat._id);
+
+        console.log(`[askQuestion] [SUCCESS] Chat saved: ${chat._id}`);
+        res.status(200).json({
+            success: true,
+            data: chat
+        });
+
+    } catch (error) {
+        console.error(`[askQuestion] [CRITICAL FAILURE] Stage: ${currentStage}`, error);
         res.status(500).json({
             success: false,
-            message: 'Error processing question',
-            error: error.message
+            message: 'Internal server error processing your question.',
+            error: error.message,
+            stage: currentStage
         });
     }
 };

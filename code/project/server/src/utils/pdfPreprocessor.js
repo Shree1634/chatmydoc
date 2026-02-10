@@ -1,31 +1,34 @@
 import fs from "fs";
-import { PDFDocument } from "pdf-lib";
+import { createRequire } from "module";
+import axios from "axios";
+const require = createRequire(import.meta.url);
+const pdfParse = require("pdf-parse");
 
 /**
- * Extract raw text from a PDF file.
- * Note: pdf-lib doesn't provide built-in text extraction, so this
- * simply loads pages and marks them. For full text extraction, 
- * you'd integrate OCR (like Tesseract).
+ * Extract raw text from a PDF file using pdf-parse.
  */
 export const extractTextFromPDF = async (filePath) => {
   try {
-    const buffer = fs.readFileSync(filePath);
-    const pdfDoc = await PDFDocument.load(buffer);
+    let buffer;
 
-    let text = "";
-    const pages = pdfDoc.getPages();
+    // Check if filePath is a URL
+    if (filePath.startsWith('http://') || filePath.startsWith('https://')) {
+      const response = await axios.get(filePath, { responseType: 'arraybuffer' });
+      buffer = response.data;
+    } else {
+      buffer = fs.readFileSync(filePath);
+    }
 
-    // pdf-lib itself cannot extract text content directly
-    // but we at least return page placeholders for now
-    pages.forEach((page, index) => {
-      const { width, height } = page.getSize();
-      text += `\n--- Page ${index + 1} (${width}x${height}) ---\n`;
-    });
+    const data = await pdfParse(buffer);
 
-    return text || "No extractable text found (pdf-lib limitation)";
+    if (!data || !data.text) {
+      throw new Error("No text content extracted");
+    }
+
+    return data.text;
   } catch (err) {
     console.error("[extractTextFromPDF] Error:", err.message);
-    return "";
+    throw err;
   }
 };
 

@@ -4,9 +4,7 @@ import app from './src/app.js';
 
 dotenv.config({ path: './.env' });
 console.log("DEBUG => MONGODB_URL:", process.env.MONGODB_URL);
-dotenv.config({
-    path: './.env'
-})
+
 
 const PORT = process.env.PORT || 8000
 
