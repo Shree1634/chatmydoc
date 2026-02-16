@@ -3,7 +3,7 @@ import PDF from '../models/pdf.model.js';
 import User from '../models/user.model.js';
 import Chat from '../models/chat.model.js';
 import { GoogleGenerativeAI } from '@google/generative-ai';
-import { extractTextFromPDF, cleanText, chunkText } from '../utils/pdfPreprocessor.js'; // 🔑 Preprocessing utils
+import { extractTextFromPDF, cleanText, smartTruncate } from '../utils/pdfPreprocessor.js'; // 🔑 Preprocessing utils
 
 // Initialize Gemini AI
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
@@ -20,51 +20,34 @@ export const uploadPDF = async (req, res) => {
             return res.status(400).json({ success: false, message: 'No file uploaded' });
         }
 
-<<<<<<< HEAD
         // Note: File is already uploaded to Cloudinary by multer-storage-cloudinary middleware
         // req.file contains the Cloudinary response details
         console.log("[uploadPDF] File uploaded via middleware. Path/URL:", req.file.path);
-=======
-        // Upload to Cloudinary
-        console.log("[uploadPDF] Uploading to Cloudinary:", req.file.originalname);
-        const result = await uploadPDFToCloudinary(req.file);
-        if (!result.success) {
-            console.error("[uploadPDF] Cloudinary upload failed:", result.error);
-            return res.status(400).json({ success: false, message: result.error });
-        }
->>>>>>> 535b24171ee6a745f7f6f24d151e85dcb019a0fe
 
         // Extract + preprocess text
-        console.log("[uploadPDF] Extracting text...");
+        console.log("[uploadPDF] Extracting text from:", req.file.path);
         let rawText = req.body.textContent || '';
-<<<<<<< HEAD
 
-        // req.file.path from multer-storage-cloudinary is the Secure URL
         if (!rawText && req.file.path) {
             try {
-                // Now extractTextFromPDF handles URLs using axios
-=======
-        if (!rawText && req.file.path) {
-            try {
->>>>>>> 535b24171ee6a745f7f6f24d151e85dcb019a0fe
+                // Extract text from the Cloudinary URL
                 rawText = await extractTextFromPDF(req.file.path);
             } catch (ppErr) {
                 console.error("[uploadPDF] Extraction failed:", ppErr.message);
+                // We continue even if extraction fails, to at least save the PDF
             }
         }
+
         const cleanedText = cleanText(rawText);
+        console.log(`[uploadPDF] Text extracted. Length: ${cleanedText.length}`);
 
         // Create PDF doc
         const pdf = await PDF.create({
             user: req.body.userId,
             title: req.body.title || req.file.originalname,
             originalFilename: req.file.originalname,
-<<<<<<< HEAD
             url: req.file.path, // Use the path/url from multer
             size: req.file.size,
-=======
-            url: result.url,
->>>>>>> 535b24171ee6a745f7f6f24d151e85dcb019a0fe
             textContent: cleanedText || ''
         });
 
@@ -175,8 +158,14 @@ export const summarizePDF = async (req, res) => {
         if (!pdf) return res.status(404).json({ success: false, message: 'PDF not found' });
         if (!pdf.textContent) return res.status(400).json({ success: false, message: 'No content to summarize' });
 
-        const preprocessed = chunkText(cleanText(pdf.textContent));
-        const prompt = `Please summarize: ${preprocessed}`;
+        // Step 1: Prepare context
+        // Use smartTruncate instead of chunkText to treat it as one coherent context
+        const context = smartTruncate(cleanText(pdf.textContent));
+
+        console.log(`[summarizePDF] Context length: ${context.length}`);
+
+        // Step 2: Call AI
+        const prompt = `Please provide a concise and comprehensive summary of the following document:\n\n${context}`;
 
         const result = await model.generateContent(prompt);
         const summary = result.response.text();
@@ -192,8 +181,6 @@ export const summarizePDF = async (req, res) => {
 };
 
 // =============================
-<<<<<<< HEAD
-=======
 // Ask Question on PDF
 // =============================
 export const askQuestion = async (req, res) => {
@@ -209,12 +196,17 @@ export const askQuestion = async (req, res) => {
         if (!pdf) return res.status(404).json({ success: false, message: 'PDF not found' });
         if (!pdf.textContent) return res.status(400).json({ success: false, message: 'No text in PDF' });
 
-        const preprocessed = chunkText(cleanText(pdf.textContent));
-        const prompt = `Based on this text: "${preprocessed}", answer: ${question}`;
+        // Step 1: Prepare context
+        const context = smartTruncate(cleanText(pdf.textContent));
+        console.log(`[askQuestion] Context length: ${context.length}`);
+
+        // Step 2: Call AI
+        const prompt = `Based on the following document content, answer the question below. If the answer is not in the document, say so.\n\nDocument Context:\n${context}\n\nQuestion: ${question}`;
 
         const result = await model.generateContent(prompt);
         const response = result.response.text();
 
+        // Step 3: Save Chat
         const chat = await Chat.create({ pdfId: pdf._id, userId: req.user._id, question, response });
         await pdf.addChat(chat._id);
 
@@ -226,7 +218,6 @@ export const askQuestion = async (req, res) => {
 };
 
 // =============================
->>>>>>> 535b24171ee6a745f7f6f24d151e85dcb019a0fe
 // Generate PDF Flow
 // =============================
 export const generatePDFFlow = async (req, res) => {
@@ -239,8 +230,8 @@ export const generatePDFFlow = async (req, res) => {
         if (!pdf) return res.status(404).json({ success: false, message: 'PDF not found' });
         if (!pdf.textContent) return res.status(400).json({ success: false, message: 'No text in PDF' });
 
-        const preprocessed = chunkText(cleanText(pdf.textContent));
-        const prompt = `Generate a structured flow of concepts from: ${preprocessed}`;
+        const context = smartTruncate(cleanText(pdf.textContent));
+        const prompt = `Generate a structured, step-by-step flow or outline of key concepts from the following text:\n\n${context}`;
 
         const result = await model.generateContent(prompt);
         const flow = result.response.text();

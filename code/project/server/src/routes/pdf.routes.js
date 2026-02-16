@@ -6,17 +6,10 @@ import {
     getPDFById,
     deletePDF,
     summarizePDF,
-<<<<<<< HEAD
     generatePDFFlow,
-    getUserPDFs
+    getUserPDFs,
+    askQuestion
 } from '../controllers/pdf.controller.js';
-import { askQuestion } from '../controllers/chat.controller.js';
-=======
-    askQuestion,
-    generatePDFFlow,
-    getUserPDFs
-} from '../controllers/pdf.controller.js';
->>>>>>> 535b24171ee6a745f7f6f24d151e85dcb019a0fe
 import authMiddleware from '../middleware/auth.js';
 
 const router = express.Router();

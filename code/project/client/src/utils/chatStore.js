@@ -23,8 +23,6 @@ const useChatStore = create((set, get) => ({
   pdfs: [],
   isLoading: false,
   isUploading: false,
-<<<<<<< HEAD
-  isUploading: false,
   uploadProgress: 0,
   error: null,
 
@@ -47,22 +45,12 @@ const useChatStore = create((set, get) => ({
       const message = get().getErrorMessage(error);
       console.error('Failed to fetch PDFs:', message);
       set({ error: message });
-=======
-  uploadProgress: 0,
-
-  fetchPDFs: async (userId) => {
-    try {
-      const { data } = await api.get(`/api/pdfs/${userId}/pdfs`);
-      set({ pdfs: data.data });
-    } catch (error) {
-      console.error('Failed to fetch PDFs:', error.response?.data || error.message);
->>>>>>> 535b24171ee6a745f7f6f24d151e85dcb019a0fe
     }
   },
 
   uploadPDF: async (file, userId) => {
     try {
-      set({ isUploading: true });
+      set({ isUploading: true, error: null, uploadProgress: 0 });
       const formData = new FormData();
       // Change field name to 'pdf' to match server configuration
       formData.append('pdf', file);
@@ -84,20 +72,16 @@ const useChatStore = create((set, get) => ({
       }
 
       set(state => ({
-        pdfs: [...state.pdfs, data.data],
+        pdfs: [data.data, ...state.pdfs], // Add new PDF to start of list
         currentPdf: data.data
       }));
 
       return data.data;
     } catch (error) {
-<<<<<<< HEAD
-      const errorMessage = error.response?.data?.message || error.response?.data?.error || error.message || 'Failed to upload PDF';
-      console.error('Failed to upload PDF:', errorMessage);
-      throw new Error(errorMessage);
-=======
-      console.error('Failed to upload PDF:', error.response?.data || error.message);
-      throw error;
->>>>>>> 535b24171ee6a745f7f6f24d151e85dcb019a0fe
+      const message = get().getErrorMessage(error);
+      console.error('Failed to upload PDF:', message);
+      set({ error: message });
+      throw new Error(message);
     } finally {
       set({ isUploading: false, uploadProgress: 0 });
     }
@@ -105,23 +89,16 @@ const useChatStore = create((set, get) => ({
 
   deletePDF: async (pdfId) => {
     try {
-<<<<<<< HEAD
       set({ error: null });
-=======
->>>>>>> 535b24171ee6a745f7f6f24d151e85dcb019a0fe
       await api.delete(`/api/pdfs/${pdfId}`);
       set(state => ({
         pdfs: state.pdfs.filter(pdf => pdf._id !== pdfId),
         currentPdf: state.currentPdf?._id === pdfId ? null : state.currentPdf
       }));
     } catch (error) {
-<<<<<<< HEAD
       const message = get().getErrorMessage(error);
       console.error('Failed to delete PDF:', message);
       set({ error: message });
-=======
-      console.error('Failed to delete PDF:', error.response?.data || error.message);
->>>>>>> 535b24171ee6a745f7f6f24d151e85dcb019a0fe
     }
   },
 
@@ -130,29 +107,29 @@ const useChatStore = create((set, get) => ({
     if (!currentPdf) return;
 
     try {
-      set({ isLoading: true });
-      set(state => ({
-        messages: [...state.messages, { type: 'user', content: question }]
-      }));
+      set({ isLoading: true, error: null });
+      // Function to add messages safely
+      const addMessage = (msg) => set(state => ({ messages: [...state.messages, msg] }));
+
+      addMessage({ type: 'user', content: question });
 
       const { data } = await api.post(`/api/pdfs/${currentPdf._id}/ask`, { question });
 
-      set(state => ({
-        messages: [...state.messages, { type: 'bot', content: data.data.response }]
-      }));
+      addMessage({ type: 'bot', content: data.data.response });
     } catch (error) {
-<<<<<<< HEAD
       const message = get().getErrorMessage(error);
       console.error('Failed to get answer:', message);
       set({ error: message });
 
-      // Also add error message to chat for better UX
+      // Identify if it's a context length error for better user feedback
+      let userFriendlyError = message;
+      if (message.includes('400') || message.includes('too large')) {
+        userFriendlyError = "The document is too large for the AI to process in one go. We're working on optimization.";
+      }
+
       set(state => ({
-        messages: [...state.messages, { type: 'error', content: `Error: ${message}` }]
+        messages: [...state.messages, { type: 'error', content: `Error: ${userFriendlyError}` }]
       }));
-=======
-      console.error('Failed to get answer:', error.response?.data || error.message);
->>>>>>> 535b24171ee6a745f7f6f24d151e85dcb019a0fe
     } finally {
       set({ isLoading: false });
     }
@@ -160,19 +137,21 @@ const useChatStore = create((set, get) => ({
 
   generateFlow: async (pdfId) => {
     try {
-      set({ isLoading: true });
+      set({ isLoading: true, error: null });
       const { data } = await api.get(`/api/pdfs/${pdfId}/flow`);
       return data.data.flow;
     } catch (error) {
-      console.error('Failed to generate flow:', error.response?.data || error.message);
+      const message = get().getErrorMessage(error);
+      console.error('Failed to generate flow:', message);
+      set({ error: message });
       return null;
     } finally {
       set({ isLoading: false });
     }
   },
 
-  setCurrentPdf: (pdf) => set({ currentPdf: pdf, messages: [] }),
-  clearChat: () => set({ messages: [], currentPdf: null }),
+  setCurrentPdf: (pdf) => set({ currentPdf: pdf, messages: [], error: null }),
+  clearChat: () => set({ messages: [], currentPdf: null, error: null }),
 }));
 
 export default useChatStore;
