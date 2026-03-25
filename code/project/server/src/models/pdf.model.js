@@ -1,18 +1,18 @@
-import mongoose from "mongoose";
+import mongoose from 'mongoose';
 
 const PDFSchema = new mongoose.Schema(
     {
         user: {
             type: mongoose.Schema.Types.ObjectId,
-            ref: "User",
-            required: [true, "User reference is required"],
+            ref: 'User',
+            required: [true, 'User reference is required'],
             index: true
         },
         title: {
             type: String,
-            required: [true, "Document title is required"],
+            required: [true, 'Document title is required'],
             trim: true,
-            maxlength: [200, "Title cannot exceed 200 characters"]
+            maxlength: [200, 'Title cannot exceed 200 characters']
         },
         originalFilename: {
             type: String,
@@ -20,11 +20,11 @@ const PDFSchema = new mongoose.Schema(
         },
         url: {
             type: String,
-            required: [true, "Cloudinary URL is required"]
+            required: [true, 'Cloudinary URL is required']
         },
         size: {
             type: Number,
-            required: [true, "File size is required"]
+            required: [true, 'File size is required']
         },
         textContent: {
             type: String,
@@ -34,6 +34,19 @@ const PDFSchema = new mongoose.Schema(
             type: String,
             default: ''
         },
+        // Extracted tables: array of { headers: string[], rows: string[][] }
+        tables: {
+            type: [{
+                headers: [String],
+                rows: [[String]]
+            }],
+            default: []
+        },
+        // Extracted image URLs (from Cloudinary)
+        images: {
+            type: [String],
+            default: []
+        },
         uploadedAt: {
             type: Date,
             default: Date.now,
@@ -41,14 +54,13 @@ const PDFSchema = new mongoose.Schema(
         },
         chats: [{
             type: mongoose.Schema.Types.ObjectId,
-            ref: "Chat"
+            ref: 'Chat'
         }],
     },
     {
         timestamps: true,
     }
 );
-
 
 // Virtual for chat count
 PDFSchema.virtual('chatCount').get(function () {
@@ -61,6 +73,6 @@ PDFSchema.methods.addChat = function (chatId) {
     return this.save();
 };
 
-const PDF = mongoose.model("PDF", PDFSchema);
+const PDF = mongoose.model('PDF', PDFSchema);
 
 export default PDF;

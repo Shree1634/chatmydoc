@@ -2,35 +2,27 @@ import { GoogleGenerativeAI } from '@google/generative-ai';
 import Chat from '../models/chat.model.js';
 import PDF from '../models/pdf.model.js';
 
-// Initialize Gemini AI
+// ─── Initialize Gemini AI (gemini-1.5-flash) ──────────────────────────────────
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
-const model = genAI.getGenerativeModel({ model: "gemini-pro" });
+const model = genAI.getGenerativeModel({ model: 'gemini-1.5-flash' });
 
 // Get conversation history
 const getPreviousContext = async (pdfId, limit = 2) => {
-    console.log(`[getPreviousContext] Fetching previous ${limit} conversations for PDF: ${pdfId}`);
     try {
         const previousChats = await Chat.find({ pdfId })
             .sort({ createdAt: -1 })
             .limit(limit);
 
-        console.log(`[getPreviousContext] Found ${previousChats.length} previous chats for PDF: ${pdfId}`);
-
         return previousChats.reverse().map(chat =>
             `Question: ${chat.question}\nAnswer: ${chat.response}`
         ).join('\n\n');
     } catch (error) {
-        console.error(`[getPreviousContext] Failed to fetch conversation history:`, {
-            pdfId,
-            message: error.message,
-            stack: error.stack,
-            name: error.name
-        });
-        throw error; // Re-throw for proper handling in calling function
+        console.error(`[getPreviousContext] Failed to fetch conversation history:`, error.message);
+        throw error;
     }
 };
 
-// Ask question with context
+// ─── Ask question with context ────────────────────────────────────────────────
 export const askQuestion = async (req, res) => {
     const STAGE = {
         INIT: 'INITIALIZATION',
@@ -43,77 +35,42 @@ export const askQuestion = async (req, res) => {
     };
 
     let currentStage = STAGE.INIT;
-    console.log(`[askQuestion] [${currentStage}] Starting request`);
 
     try {
-        // --- STAGE: AUTHENTICATION ---
         currentStage = STAGE.AUTH;
         if (!req.user || !req.user._id) {
-            console.error(`[askQuestion] [${currentStage}] failed: User not authenticated`);
-            return res.status(401).json({
-                success: false,
-                message: 'User authentication required',
-                stage: currentStage
-            });
+            return res.status(401).json({ success: false, message: 'User authentication required', stage: currentStage });
         }
 
-        // --- STAGE: INPUT VALIDATION ---
         currentStage = STAGE.VALIDATION;
         const { question } = req.body;
         const pdfId = req.params.pdfId || req.params.id;
 
         if (!question || question.trim() === '') {
-            return res.status(400).json({
-                success: false,
-                message: 'Question cannot be empty',
-                stage: currentStage
-            });
+            return res.status(400).json({ success: false, message: 'Question cannot be empty', stage: currentStage });
         }
         if (!pdfId) {
-            return res.status(400).json({
-                success: false,
-                message: 'PDF ID is required',
-                stage: currentStage
-            });
+            return res.status(400).json({ success: false, message: 'PDF ID is required', stage: currentStage });
         }
 
-        console.log(`[askQuestion] [${currentStage}] Question: "${question.substring(0, 50)}..." | PDF: ${pdfId}`);
-
-        // --- STAGE: DB FETCH PDF ---
         currentStage = STAGE.DB_FETCH;
-        const pdf = await PDF.findOne({
-            _id: pdfId,
-            user: req.user._id
-        }).select('+textContent');
+        const pdf = await PDF.findOne({ _id: pdfId, user: req.user._id }).select('+textContent');
 
         if (!pdf) {
-            console.warn(`[askQuestion] [${currentStage}] PDF not found: ${pdfId}`);
-            return res.status(404).json({
-                success: false,
-                message: 'PDF not found',
-                stage: currentStage
-            });
+            return res.status(404).json({ success: false, message: 'PDF not found', stage: currentStage });
         }
 
         if (!pdf.textContent || pdf.textContent.trim().length < 10) {
-            console.warn(`[askQuestion] [${currentStage}] PDF empty or too short. Length: ${pdf.textContent?.length}`);
-            return res.status(400).json({
-                success: false,
-                message: 'The PDF content is empty or too short to analyze.',
-                stage: currentStage
-            });
+            return res.status(400).json({ success: false, message: 'The PDF content is empty or too short to analyze.', stage: currentStage });
         }
 
-        // --- STAGE: DB FETCH CONTEXT ---
         currentStage = STAGE.CONTEXT_FETCH;
         const previousContext = await getPreviousContext(pdfId);
 
-        // --- STAGE: AI GENERATION ---
         currentStage = STAGE.AI_GEN;
 
-        // Sanity Check: Ensure API Key exists
         if (!process.env.GEMINI_API_KEY) {
-            throw new Error("Server misconfiguration: GEMINI_API_KEY is missing");
+            throw new Error('Server misconfiguration: GEMINI_API_KEY is missing');
         }
 
         const prompt = `
@@ -134,190 +91,86 @@ export const askQuestion = async (req, res) => {
         - Keep the answer concise and helpful.
         `;
 
-        let responseText = "";
+        let responseText = '';
         try {
             const result = await model.generateContent(prompt);
             const response = await result.response;
             responseText = response.text();
-
-            if (!responseText) throw new Error("AI returned empty response");
+            if (!responseText) throw new Error('AI returned empty response');
         } catch (aiError) {
-            console.error(`[askQuestion] [${currentStage}] Gemini API Error:`, aiError.message);
-            // Distinguish between block/safety vs network
-            let userMsg = "Failed to generate answer from AI.";
-            if (aiError.message.includes("SAFETY")) userMsg = "The response was blocked due to safety settings.";
-            if (aiError.message.includes("API key")) userMsg = "Service configuration error (API Key).";
+            console.error(`[askQuestion] Gemini API Error:`, aiError.message);
+            let userMsg = 'Failed to generate answer from AI.';
+            if (aiError.message.includes('SAFETY')) userMsg = 'The response was blocked due to safety settings.';
+            if (aiError.message.includes('API key')) userMsg = 'Service configuration error (API Key).';
 
-            return res.status(503).json({
-                success: false,
-                message: userMsg,
-                error: aiError.message,
-                stage: currentStage
-            });
+            return res.status(503).json({ success: false, message: userMsg, error: aiError.message, stage: currentStage });
         }
 
-        // --- STAGE: DB SAVE CHAT ---
         currentStage = STAGE.DB_SAVE;
-        const chat = await Chat.create({
-            pdfId: pdf._id,
-            userId: req.user._id,
-            question,
-            response: responseText
-        });
-
+        const chat = await Chat.create({ pdfId: pdf._id, userId: req.user._id, question, response: responseText });
         await pdf.addChat(chat._id);
 
-        console.log(`[askQuestion] [SUCCESS] Chat saved: ${chat._id}`);
-        res.status(200).json({
-            success: true,
-            data: chat
-        });
+        res.status(200).json({ success: true, data: chat });
 
     } catch (error) {
         console.error(`[askQuestion] [CRITICAL FAILURE] Stage: ${currentStage}`, error);
-        res.status(500).json({
-            success: false,
-            message: 'Internal server error processing your question.',
-            error: error.message,
-            stage: currentStage
-        });
+        res.status(500).json({ success: false, message: 'Internal server error processing your question.', error: error.message, stage: currentStage });
     }
 };
 
-// Get all chats for a PDF
+// ─── Get all chats for a PDF ──────────────────────────────────────────────────
 export const getPDFChats = async (req, res) => {
-    console.log(`[getPDFChats] Fetching chats for PDF: ${req.params.pdfId}`);
     try {
         if (!req.params.pdfId) {
-            console.error("[getPDFChats] No PDF ID provided");
-            return res.status(400).json({
-                success: false,
-                message: 'PDF ID is required'
-            });
+            return res.status(400).json({ success: false, message: 'PDF ID is required' });
         }
-
         if (!req.user?._id) {
-            console.error("[getPDFChats] No user ID available");
-            return res.status(401).json({
-                success: false,
-                message: 'User authentication required'
-            });
+            return res.status(401).json({ success: false, message: 'User authentication required' });
         }
 
-        console.log(`[getPDFChats] Verifying PDF ownership for user: ${req.user._id}`);
-        const pdf = await PDF.findOne({
-            _id: req.params.pdfId,
-            user: req.user._id
-        });
-
+        const pdf = await PDF.findOne({ _id: req.params.pdfId, user: req.user._id });
         if (!pdf) {
-            console.error(`[getPDFChats] PDF not found with ID: ${req.params.pdfId} for user: ${req.user._id}`);
-            return res.status(404).json({
-                success: false,
-                message: 'PDF not found'
-            });
+            return res.status(404).json({ success: false, message: 'PDF not found' });
         }
 
-        console.log(`[getPDFChats] Querying chats for PDF: ${pdf._id}`);
         const chats = await Chat.find({ pdfId: pdf._id })
             .sort('createdAt')
             .select('question response createdAt');
 
-        console.log(`[getPDFChats] Successfully retrieved ${chats.length} chats for PDF: ${pdf._id}`);
-        res.status(200).json({
-            success: true,
-            count: chats.length,
-            data: chats
-        });
+        res.status(200).json({ success: true, count: chats.length, data: chats });
     } catch (error) {
-        console.error("[getPDFChats] Error fetching chats:", {
-            pdfId: req.params.pdfId,
-            userId: req.user?._id,
-            message: error.message,
-            stack: error.stack,
-            name: error.name
-        });
-
-        res.status(500).json({
-            success: false,
-            message: 'Error fetching chats',
-            error: error.message
-        });
+        console.error('[getPDFChats] Error:', error.message);
+        res.status(500).json({ success: false, message: 'Error fetching chats', error: error.message });
     }
 };
 
-// Delete chat
+// ─── Delete chat ──────────────────────────────────────────────────────────────
 export const deleteChat = async (req, res) => {
-    console.log(`[deleteChat] Attempting to delete chat: ${req.params.chatId}`);
     try {
         if (!req.params.chatId) {
-            console.error("[deleteChat] No chat ID provided");
-            return res.status(400).json({
-                success: false,
-                message: 'Chat ID is required'
-            });
+            return res.status(400).json({ success: false, message: 'Chat ID is required' });
         }
-
         if (!req.user?._id) {
-            console.error("[deleteChat] No user ID available");
-            return res.status(401).json({
-                success: false,
-                message: 'User authentication required'
-            });
+            return res.status(401).json({ success: false, message: 'User authentication required' });
         }
 
-        console.log(`[deleteChat] Finding chat with ID: ${req.params.chatId}`);
         const chat = await Chat.findById(req.params.chatId);
-
         if (!chat) {
-            console.error(`[deleteChat] Chat not found with ID: ${req.params.chatId}`);
-            return res.status(404).json({
-                success: false,
-                message: 'Chat not found'
-            });
+            return res.status(404).json({ success: false, message: 'Chat not found' });
         }
 
-        // Verify user owns the PDF associated with the chat
-        console.log(`[deleteChat] Verifying PDF ownership for chat: ${chat._id}`);
-        const pdf = await PDF.findOne({
-            _id: chat.pdfId,
-            user: req.user._id
-        });
-
+        const pdf = await PDF.findOne({ _id: chat.pdfId, user: req.user._id });
         if (!pdf) {
-            console.error(`[deleteChat] User ${req.user._id} not authorized to delete chat ${chat._id}`);
-            return res.status(403).json({
-                success: false,
-                message: 'Not authorized to delete this chat'
-            });
+            return res.status(403).json({ success: false, message: 'Not authorized to delete this chat' });
         }
 
-        console.log(`[deleteChat] Deleting chat: ${chat._id}`);
         await chat.deleteOne();
-
-        // Remove chat from PDF's chats array
-        console.log(`[deleteChat] Removing chat reference from PDF: ${pdf._id}`);
         pdf.chats = pdf.chats.filter(id => id.toString() !== chat._id.toString());
         await pdf.save();
 
-        console.log(`[deleteChat] Successfully deleted chat: ${chat._id}`);
-        res.status(200).json({
-            success: true,
-            message: 'Chat deleted successfully'
-        });
+        res.status(200).json({ success: true, message: 'Chat deleted successfully' });
     } catch (error) {
-        console.error("[deleteChat] Error deleting chat:", {
-            chatId: req.params.chatId,
-            userId: req.user?._id,
-            message: error.message,
-            stack: error.stack,
-            name: error.name
-        });
-
-        res.status(500).json({
-            success: false,
-            message: 'Error deleting chat',
-            error: error.message
-        });
+        console.error('[deleteChat] Error:', error.message);
+        res.status(500).json({ success: false, message: 'Error deleting chat', error: error.message });
     }
 };

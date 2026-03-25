@@ -1,115 +1,108 @@
-import { uploadPDFToCloudinary } from '../config/cloudinary.js';
+import { v2 as cloudinary } from 'cloudinary';
+import { CloudinaryStorage } from 'multer-storage-cloudinary';
+import multer from 'multer';
+import { GoogleGenerativeAI } from '@google/generative-ai';
 import PDF from '../models/pdf.model.js';
 import User from '../models/user.model.js';
 import Chat from '../models/chat.model.js';
-import { GoogleGenerativeAI } from '@google/generative-ai';
-import { extractTextFromPDF, cleanText, smartTruncate } from '../utils/pdfPreprocessor.js'; // 🔑 Preprocessing utils
+import { extractTextFromPDF, cleanText, smartTruncate, extractTablesFromPDF, extractImagesFromPDF } from '../utils/pdfPreprocessor.js';
 
-// Initialize Gemini AI
+// ─── Initialize Gemini AI (gemini-1.5-flash) ──────────────────────────────────
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
-const model = genAI.getGenerativeModel({ model: "gemini-pro" });
+const model = genAI.getGenerativeModel({ model: 'gemini-1.5-flash' });
 
-// =============================
-// Upload PDF
-// =============================
+// ─── Upload PDF ───────────────────────────────────────────────────────────────
 export const uploadPDF = async (req, res) => {
-    console.log("[uploadPDF] Starting PDF upload process");
+    console.log('[uploadPDF] Starting PDF upload process');
     try {
         if (!req.file) {
-            console.error("[uploadPDF] No file provided in request");
             return res.status(400).json({ success: false, message: 'No file uploaded' });
         }
 
-        // Note: File is already uploaded to Cloudinary by multer-storage-cloudinary middleware
-        // req.file contains the Cloudinary response details
-        console.log("[uploadPDF] File uploaded via middleware. Path/URL:", req.file.path);
+        // Security fix: use req.user._id, not req.body.userId
+        if (!req.user?._id) {
+            return res.status(401).json({ success: false, message: 'Authentication required' });
+        }
 
-        // Extract + preprocess text
-        console.log("[uploadPDF] Extracting text from:", req.file.path);
+        console.log('[uploadPDF] File uploaded via middleware. Path/URL:', req.file.path);
+
         let rawText = req.body.textContent || '';
-
         if (!rawText && req.file.path) {
             try {
-                // Extract text from the Cloudinary URL
                 rawText = await extractTextFromPDF(req.file.path);
             } catch (ppErr) {
-                console.error("[uploadPDF] Extraction failed:", ppErr.message);
-                // We continue even if extraction fails, to at least save the PDF
+                console.error('[uploadPDF] Extraction failed:', ppErr.message);
             }
         }
 
         const cleanedText = cleanText(rawText);
         console.log(`[uploadPDF] Text extracted. Length: ${cleanedText.length}`);
 
-        // Create PDF doc
         const pdf = await PDF.create({
-            user: req.body.userId,
+            user: req.user._id,  // Fixed: use authenticated user ID
             title: req.body.title || req.file.originalname,
             originalFilename: req.file.originalname,
-            url: req.file.path, // Use the path/url from multer
+            url: req.file.path,
             size: req.file.size,
             textContent: cleanedText || ''
         });
 
-        console.log("[uploadPDF] PDF created:", pdf._id);
+        console.log('[uploadPDF] PDF created:', pdf._id);
         res.status(201).json({ success: true, data: pdf });
     } catch (error) {
-        console.error("[uploadPDF] Unexpected error:", error.message);
+        console.error('[uploadPDF] Unexpected error:', error.message);
         res.status(500).json({ success: false, message: 'Failed to upload PDF', error: error.message });
     }
 };
 
-// =============================
-// Get all PDFs for a user
-// =============================
+// ─── Get all PDFs ─────────────────────────────────────────────────────────────
 export const getAllPDFs = async (req, res) => {
-    console.log("[getAllPDFs] Fetching PDFs");
     try {
-        const userId = req.body.userId || req.user?._id;
-        if (!userId) return res.status(400).json({ success: false, message: 'User ID is required' });
+        // Security fix: use req.user._id
+        if (!req.user?._id) {
+            return res.status(401).json({ success: false, message: 'Authentication required' });
+        }
 
-        const pdfs = await PDF.find({ user: userId }).select('-textContent').sort('-uploadedAt');
+        const pdfs = await PDF.find({ user: req.user._id }).select('-textContent').sort('-uploadedAt');
         res.status(200).json({ success: true, count: pdfs.length, data: pdfs });
     } catch (error) {
-        console.error("[getAllPDFs] Error:", error.message);
+        console.error('[getAllPDFs] Error:', error.message);
         res.status(500).json({ success: false, message: 'Failed to retrieve PDFs', error: error.message });
     }
 };
 
-// =============================
-// Get PDF by ID
-// =============================
+// ─── Get PDF by ID ────────────────────────────────────────────────────────────
 export const getPDFById = async (req, res) => {
-    console.log("[getPDFById] ID:", req.params.id);
     try {
         if (!req.params.id) return res.status(400).json({ success: false, message: 'PDF ID required' });
 
-        const userId = req.body.userId || req.user?._id;
-        if (!userId) return res.status(400).json({ success: false, message: 'User ID required' });
+        // Security fix: use req.user._id
+        if (!req.user?._id) {
+            return res.status(401).json({ success: false, message: 'Authentication required' });
+        }
 
-        const pdf = await PDF.findOne({ _id: req.params.id, user: userId }).populate('chats');
+        const pdf = await PDF.findOne({ _id: req.params.id, user: req.user._id }).populate('chats');
         if (!pdf) return res.status(404).json({ success: false, message: 'PDF not found' });
 
         res.status(200).json({ success: true, data: pdf });
     } catch (error) {
-        console.error("[getPDFById] Error:", error.message);
+        console.error('[getPDFById] Error:', error.message);
         res.status(500).json({ success: false, message: 'Failed to retrieve PDF', error: error.message });
     }
 };
 
-// =============================
-// Get all PDFs of a user with chat counts
-// =============================
+// ─── Get User PDFs with chat counts ──────────────────────────────────────────
 export const getUserPDFs = async (req, res) => {
-    console.log("[getUserPDFs] Fetching with chat counts");
     try {
-        const userId = req.body.userId || req.params.userId || req.user?._id;
-        if (!userId) return res.status(400).json({ success: false, message: 'User ID required' });
+        // Security fix: use req.user._id
+        if (!req.user?._id) {
+            return res.status(401).json({ success: false, message: 'Authentication required' });
+        }
 
-        const user = await User.findById(userId);
+        const user = await User.findById(req.user._id);
         if (!user) return res.status(404).json({ success: false, message: 'User not found' });
 
-        const pdfs = await PDF.find({ user: userId })
+        const pdfs = await PDF.find({ user: req.user._id })
             .select('-textContent')
             .populate({ path: 'chats', select: 'question response createdAt' })
             .sort('-uploadedAt');
@@ -120,16 +113,13 @@ export const getUserPDFs = async (req, res) => {
             data: pdfs.map(pdf => ({ ...pdf.toObject(), chatCount: pdf.chats.length }))
         });
     } catch (error) {
-        console.error("[getUserPDFs] Error:", error.message);
+        console.error('[getUserPDFs] Error:', error.message);
         res.status(500).json({ success: false, message: 'Error fetching PDFs', error: error.message });
     }
 };
 
-// =============================
-// Delete PDF
-// =============================
+// ─── Delete PDF ───────────────────────────────────────────────────────────────
 export const deletePDF = async (req, res) => {
-    console.log("[deletePDF] ID:", req.params.id);
     try {
         if (!req.params.id) return res.status(400).json({ success: false, message: 'PDF ID required' });
         if (!req.user?._id) return res.status(401).json({ success: false, message: 'Auth required' });
@@ -140,16 +130,13 @@ export const deletePDF = async (req, res) => {
         await Chat.deleteMany({ pdfId: pdf._id });
         res.status(200).json({ success: true, message: 'PDF deleted successfully' });
     } catch (error) {
-        console.error("[deletePDF] Error:", error.message);
+        console.error('[deletePDF] Error:', error.message);
         res.status(500).json({ success: false, message: 'Failed to delete PDF', error: error.message });
     }
 };
 
-// =============================
-// Summarize PDF
-// =============================
+// ─── Summarize PDF ────────────────────────────────────────────────────────────
 export const summarizePDF = async (req, res) => {
-    console.log("[summarizePDF] Summarizing:", req.params.id);
     try {
         if (!req.params.id) return res.status(400).json({ success: false, message: 'PDF ID required' });
         if (!req.user?._id) return res.status(401).json({ success: false, message: 'Auth required' });
@@ -158,13 +145,7 @@ export const summarizePDF = async (req, res) => {
         if (!pdf) return res.status(404).json({ success: false, message: 'PDF not found' });
         if (!pdf.textContent) return res.status(400).json({ success: false, message: 'No content to summarize' });
 
-        // Step 1: Prepare context
-        // Use smartTruncate instead of chunkText to treat it as one coherent context
         const context = smartTruncate(cleanText(pdf.textContent));
-
-        console.log(`[summarizePDF] Context length: ${context.length}`);
-
-        // Step 2: Call AI
         const prompt = `Please provide a concise and comprehensive summary of the following document:\n\n${context}`;
 
         const result = await model.generateContent(prompt);
@@ -175,16 +156,13 @@ export const summarizePDF = async (req, res) => {
 
         res.status(200).json({ success: true, data: { summary } });
     } catch (error) {
-        console.error("[summarizePDF] Error:", error.message);
+        console.error('[summarizePDF] Error:', error.message);
         res.status(500).json({ success: false, message: 'Failed to summarize PDF', error: error.message });
     }
 };
 
-// =============================
-// Ask Question on PDF
-// =============================
+// ─── Ask Question on PDF ──────────────────────────────────────────────────────
 export const askQuestion = async (req, res) => {
-    console.log("[askQuestion] PDF:", req.params.id);
     try {
         if (!req.params.id) return res.status(400).json({ success: false, message: 'PDF ID required' });
         if (!req.user?._id) return res.status(401).json({ success: false, message: 'Auth required' });
@@ -196,32 +174,24 @@ export const askQuestion = async (req, res) => {
         if (!pdf) return res.status(404).json({ success: false, message: 'PDF not found' });
         if (!pdf.textContent) return res.status(400).json({ success: false, message: 'No text in PDF' });
 
-        // Step 1: Prepare context
         const context = smartTruncate(cleanText(pdf.textContent));
-        console.log(`[askQuestion] Context length: ${context.length}`);
-
-        // Step 2: Call AI
         const prompt = `Based on the following document content, answer the question below. If the answer is not in the document, say so.\n\nDocument Context:\n${context}\n\nQuestion: ${question}`;
 
         const result = await model.generateContent(prompt);
         const response = result.response.text();
 
-        // Step 3: Save Chat
         const chat = await Chat.create({ pdfId: pdf._id, userId: req.user._id, question, response });
         await pdf.addChat(chat._id);
 
         res.status(200).json({ success: true, data: chat });
     } catch (error) {
-        console.error("[askQuestion] Error:", error.message);
+        console.error('[askQuestion] Error:', error.message);
         res.status(500).json({ success: false, message: 'Failed to process question', error: error.message });
     }
 };
 
-// =============================
-// Generate PDF Flow
-// =============================
+// ─── Generate PDF Flow ────────────────────────────────────────────────────────
 export const generatePDFFlow = async (req, res) => {
-    console.log("[generatePDFFlow] Flow for:", req.params.id);
     try {
         if (!req.params.id) return res.status(400).json({ success: false, message: 'PDF ID required' });
         if (!req.user?._id) return res.status(401).json({ success: false, message: 'Auth required' });
@@ -238,7 +208,100 @@ export const generatePDFFlow = async (req, res) => {
 
         res.status(200).json({ success: true, data: { flow } });
     } catch (error) {
-        console.error("[generatePDFFlow] Error:", error.message);
+        console.error('[generatePDFFlow] Error:', error.message);
         res.status(500).json({ success: false, message: 'Failed to generate flow', error: error.message });
+    }
+};
+
+// ─── Extract Tables ───────────────────────────────────────────────────────────
+export const extractTables = async (req, res) => {
+    try {
+        if (!req.params.id) return res.status(400).json({ success: false, message: 'PDF ID required' });
+        if (!req.user?._id) return res.status(401).json({ success: false, message: 'Auth required' });
+
+        const pdf = await PDF.findOne({ _id: req.params.id, user: req.user._id }).select('+textContent');
+        if (!pdf) return res.status(404).json({ success: false, message: 'PDF not found' });
+
+        // Return cached tables if already extracted
+        if (pdf.tables && pdf.tables.length > 0) {
+            return res.status(200).json({ success: true, data: { tables: pdf.tables, source: 'cache' } });
+        }
+
+        // Extract tables from the PDF URL
+        let tables = [];
+        try {
+            tables = await extractTablesFromPDF(pdf.url, pdf.textContent);
+        } catch (extractErr) {
+            console.error('[extractTables] Extraction error:', extractErr.message);
+            // Fall back to AI-based table extraction if local extraction fails
+            if (pdf.textContent) {
+                const context = smartTruncate(cleanText(pdf.textContent));
+                const prompt = `Extract all tables from the following text. Return a JSON array where each element is an object with:
+- "headers": array of column header strings
+- "rows": 2D array of cell values
+If no tables exist, return an empty array [].
+
+IMPORTANT: Return ONLY valid JSON, no markdown, no explanation.
+
+Text:
+${context}`;
+
+                const result = await model.generateContent(prompt);
+                const responseText = result.response.text().trim();
+
+                try {
+                    // Strip possible markdown code fences
+                    const jsonStr = responseText.replace(/^```json\n?/, '').replace(/^```\n?/, '').replace(/\n?```$/, '');
+                    tables = JSON.parse(jsonStr);
+                    if (!Array.isArray(tables)) tables = [];
+                } catch {
+                    tables = [];
+                }
+            }
+        }
+
+        // Cache the result
+        pdf.tables = tables;
+        await pdf.save();
+
+        res.status(200).json({ success: true, data: { tables } });
+    } catch (error) {
+        console.error('[extractTables] Error:', error.message);
+        res.status(500).json({ success: false, message: 'Failed to extract tables', error: error.message });
+    }
+};
+
+// ─── Extract Images ───────────────────────────────────────────────────────────
+export const extractImages = async (req, res) => {
+    try {
+        if (!req.params.id) return res.status(400).json({ success: false, message: 'PDF ID required' });
+        if (!req.user?._id) return res.status(401).json({ success: false, message: 'Auth required' });
+
+        const pdf = await PDF.findOne({ _id: req.params.id, user: req.user._id });
+        if (!pdf) return res.status(404).json({ success: false, message: 'PDF not found' });
+
+        // Return cached images if already extracted
+        if (pdf.images && pdf.images.length > 0) {
+            return res.status(200).json({ success: true, data: { images: pdf.images, source: 'cache' } });
+        }
+
+        // Extract images from the PDF URL
+        let imageUrls = [];
+        try {
+            imageUrls = await extractImagesFromPDF(pdf.url, pdf._id.toString());
+        } catch (extractErr) {
+            console.error('[extractImages] Extraction error:', extractErr.message);
+            // Return empty array if extraction fails — images are binary and can't fallback to AI
+            imageUrls = [];
+        }
+
+        // Cache the result
+        pdf.images = imageUrls;
+        await pdf.save();
+
+        res.status(200).json({ success: true, data: { images: imageUrls } });
+    } catch (error) {
+        console.error('[extractImages] Error:', error.message);
+        res.status(500).json({ success: false, message: 'Failed to extract images', error: error.message });
     }
 };
