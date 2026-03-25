@@ -12,8 +12,8 @@ const router = express.Router();
 router.use(authMiddleware);
 
 // Chat routes
-router.post('/:pdfId/question', askQuestion);
+router.post('/:pdfId/chat', askQuestion);
 router.get('/:pdfId/chats', getPDFChats);
-router.delete('/chats/:chatId', deleteChat);
+router.delete('/:pdfId/chats/:chatId', deleteChat);
 
 export default router;

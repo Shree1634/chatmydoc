@@ -6,9 +6,9 @@ import {
     getPDFById,
     deletePDF,
     summarizePDF,
-    askQuestion,
     generatePDFFlow,
-    getUserPDFs
+    getUserPDFs,
+    askQuestion
 } from '../controllers/pdf.controller.js';
 import authMiddleware from '../middleware/auth.js';
 
