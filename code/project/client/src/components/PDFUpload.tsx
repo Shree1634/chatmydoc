@@ -37,133 +37,86 @@ export default function PDFUpload({ onSuccess }: PDFUploadProps) {
     if (pdf) {
       setUploaded(true);
       setTimeout(() => {
-        if (onSuccess) {
-          onSuccess(pdf._id);
-        } else {
-          navigate(`/pdf/${pdf._id}`);
-        }
-      }, 1000);
+        if (onSuccess) onSuccess(pdf._id);
+        else navigate(`/pdf/${pdf._id}`);
+      }, 800);
     }
   };
 
-  const clearFile = () => {
-    setUploadedFile(null);
-    setTitle('');
-    setUploaded(false);
-  };
+  const formatSize = (b: number) =>
+    b < 1024 * 1024 ? `${(b / 1024).toFixed(1)} KB` : `${(b / (1024 * 1024)).toFixed(1)} MB`;
 
-  const formatSize = (bytes: number) => {
-    if (bytes < 1024) return `${bytes} B`;
-    if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
-    return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
-  };
+  const clearFile = () => { setUploadedFile(null); setTitle(''); setUploaded(false); };
 
   return (
-    <div className="pdf-upload-wrapper">
+    <div className="w-full">
       <AnimatePresence mode="wait">
         {!uploadedFile ? (
           <motion.div
-            key="dropzone"
+            key="drop"
             initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
             {...getRootProps()}
-            className={`dropzone ${isDragActive ? 'active' : ''}`}
+            className={`border-2 border-dashed rounded-2xl p-10 text-center cursor-pointer transition-all
+              ${isDragActive
+                ? 'border-purple-500 bg-purple-500/5'
+                : 'border-[#2a2a3a] bg-[#111118] hover:border-purple-500/50 hover:bg-purple-500/5'
+              }`}
           >
             <input {...getInputProps()} />
-            <div className="dropzone-icon">
-              <Upload size={32} />
+            <div className="w-14 h-14 bg-purple-500/15 text-purple-400 rounded-xl flex items-center justify-center mx-auto mb-4">
+              <Upload size={28} />
             </div>
-            <h3 className="dropzone-title">
+            <h3 className="font-semibold text-[#f0f0ff] mb-1">
               {isDragActive ? 'Drop your PDF here' : 'Drag & drop your PDF'}
             </h3>
-            <p className="dropzone-sub">or click to browse — max 10MB</p>
+            <p className="text-sm text-[#606078]">or click to browse — max 10MB</p>
           </motion.div>
         ) : (
           <motion.div
-            key="file-preview"
-            initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}
-            className="file-preview"
+            key="preview"
+            initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}
+            className="bg-[#111118] border border-[#2a2a3a] rounded-2xl p-4 flex flex-col gap-4"
           >
-            <div className="file-info">
-              <div className="file-icon"><FileText size={24} /></div>
-              <div className="file-meta">
-                <p className="file-name">{uploadedFile.name}</p>
-                <p className="file-size">{formatSize(uploadedFile.size)}</p>
+            {/* File info */}
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 bg-purple-500/15 text-purple-400 rounded-lg flex items-center justify-center flex-shrink-0">
+                <FileText size={20} />
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-medium text-[#f0f0ff] truncate">{uploadedFile.name}</p>
+                <p className="text-xs text-[#606078]">{formatSize(uploadedFile.size)}</p>
               </div>
               {!isUploading && !uploaded && (
-                <button className="btn btn-ghost btn-sm" onClick={clearFile}>
+                <button onClick={clearFile} className="p-1 rounded text-[#606078] hover:text-[#f0f0ff] transition-colors">
                   <X size={16} />
                 </button>
               )}
-              {uploaded && <CheckCircle size={20} color="var(--success)" />}
+              {uploaded && <CheckCircle size={20} className="text-emerald-400 flex-shrink-0" />}
             </div>
 
             {!uploaded && (
               <>
-                <div className="form-group" style={{ marginTop: '1rem' }}>
-                  <label>Document Title</label>
+                <div className="flex flex-col gap-1.5">
+                  <label className="text-xs font-medium text-[#a0a0b8]">Document Title</label>
                   <input
-                    className="input"
+                    className="w-full bg-[#0a0a0f] border border-[#2a2a3a] rounded-lg px-3 py-2 text-sm text-[#f0f0ff] placeholder-[#606078] outline-none focus:border-purple-600 focus:ring-2 focus:ring-purple-600/20 transition-all"
                     value={title}
-                    onChange={(e) => setTitle(e.target.value)}
+                    onChange={e => setTitle(e.target.value)}
                     placeholder="Enter a title for this document"
                   />
                 </div>
                 <button
-                  className="btn btn-primary"
-                  style={{ width: '100%', marginTop: '1rem', justifyContent: 'center' }}
                   onClick={handleUpload}
                   disabled={isUploading}
+                  className="w-full btn-gradient py-2.5 rounded-xl text-sm font-semibold text-white flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                  {isUploading ? (
-                    <><div className="spinner" style={{ width: 16, height: 16 }} /> Uploading...</>
-                  ) : 'Upload PDF'}
+                  {isUploading ? <><div className="spinner w-4 h-4" /> Uploading...</> : 'Upload PDF'}
                 </button>
               </>
             )}
           </motion.div>
         )}
       </AnimatePresence>
-
-      <style>{`
-        .pdf-upload-wrapper { width: 100%; }
-        .dropzone {
-          border: 2px dashed var(--border);
-          border-radius: var(--radius-lg);
-          padding: 3rem 2rem;
-          text-align: center;
-          cursor: pointer;
-          transition: var(--transition);
-          background: var(--bg-secondary);
-        }
-        .dropzone:hover, .dropzone.active {
-          border-color: var(--accent-purple);
-          background: rgba(139,92,246,.05);
-        }
-        .dropzone-icon {
-          width: 64px; height: 64px; border-radius: var(--radius-lg);
-          background: rgba(139,92,246,.15);
-          display: flex; align-items: center; justify-content: center;
-          margin: 0 auto 1.25rem;
-          color: var(--accent-purple);
-        }
-        .dropzone-title { font-size: 1.1rem; font-weight: 600; margin-bottom: .5rem; }
-        .dropzone-sub { font-size: .85rem; color: var(--text-muted); }
-        .file-preview {
-          border: 1px solid var(--border);
-          border-radius: var(--radius-lg);
-          padding: 1.25rem;
-          background: var(--bg-card);
-        }
-        .file-info { display: flex; align-items: center; gap: .75rem; }
-        .file-icon {
-          width: 44px; height: 44px; border-radius: var(--radius-md);
-          background: rgba(139,92,246,.15); color: var(--accent-purple);
-          display: flex; align-items: center; justify-content: center; flex-shrink: 0;
-        }
-        .file-meta { flex: 1; min-width: 0; }
-        .file-name { font-weight: 500; font-size: .9rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-        .file-size { font-size: .8rem; color: var(--text-muted); }
-      `}</style>
     </div>
   );
 }

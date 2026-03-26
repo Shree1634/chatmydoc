@@ -10,24 +10,22 @@ export default function ChatPage() {
   const { id } = useParams<{ id: string }>();
   const { currentPDF, isLoading, fetchPDFById } = usePDFStore();
 
-  useEffect(() => {
-    if (id) fetchPDFById(id);
-  }, [id, fetchPDFById]);
+  useEffect(() => { if (id) fetchPDFById(id); }, [id, fetchPDFById]);
 
   if (isLoading) {
     return (
-      <div className="page-loader">
-        <div className="spinner" style={{ width: 40, height: 40 }} />
+      <div className="min-h-screen bg-[#0a0a0f] flex items-center justify-center">
+        <div className="spinner w-10 h-10" />
       </div>
     );
   }
 
   if (!currentPDF) {
     return (
-      <div className="page-loader">
-        <div className="empty-state">
-          <h3>PDF not found</h3>
-          <Link to="/dashboard" className="btn btn-primary" style={{ marginTop: '1rem' }}>
+      <div className="min-h-screen bg-[#0a0a0f] flex items-center justify-center text-center">
+        <div className="flex flex-col gap-4">
+          <h3 className="text-lg font-semibold text-[#a0a0b8]">PDF not found</h3>
+          <Link to="/dashboard" className="btn-gradient px-5 py-2 rounded-xl text-sm font-semibold text-white">
             Back to Dashboard
           </Link>
         </div>
@@ -36,51 +34,34 @@ export default function ChatPage() {
   }
 
   return (
-    <div className="chat-page">
+    <div className="min-h-screen bg-[#0a0a0f] text-[#f0f0ff] flex flex-col">
       <Navbar />
 
-      <div className="chat-page-header container">
-        <Link to={`/pdf/${id}`} className="btn btn-ghost btn-sm">
-          <ArrowLeft size={16} /> Back to Document
+      {/* Sub-header */}
+      <div className="flex items-center gap-3 px-4 py-2 border-b border-[#2a2a3a] flex-wrap">
+        <Link to={`/pdf/${id}`} className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-sm text-[#606078] hover:text-[#f0f0ff] hover:bg-[#16161f] transition-colors">
+          <ArrowLeft size={15} /> Back
         </Link>
-        <h1 className="chat-page-title">{currentPDF.title}</h1>
-        <a href={currentPDF.url} target="_blank" rel="noopener noreferrer" className="btn btn-secondary btn-sm">
-          <ExternalLink size={14} /> Open PDF
+        <h1 className="flex-1 text-sm font-semibold truncate">{currentPDF.title}</h1>
+        <a
+          href={currentPDF.url}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-semibold bg-[#16161f] border border-[#2a2a3a] text-[#a0a0b8] hover:border-[#3a3a4a] hover:text-[#f0f0ff] transition-colors"
+        >
+          <ExternalLink size={13} /> Open PDF
         </a>
       </div>
 
-      <div className="chat-layout container">
-        <div className="chat-pdf-panel">
+      {/* Split view */}
+      <div className="flex-1 grid grid-cols-1 lg:grid-cols-2 gap-3 p-3 min-h-0 h-[calc(100vh-110px)]">
+        <div className="h-full min-h-[400px]">
           <PDFViewer url={currentPDF.url} title={currentPDF.title} />
         </div>
-        <div className="chat-panel">
+        <div className="h-full min-h-[400px]">
           <ChatWindow pdfId={id!} />
         </div>
       </div>
-
-      <style>{`
-        .chat-page { min-height: 100vh; display: flex; flex-direction: column; }
-        .chat-page-header {
-          display: flex; align-items: center; gap: 1rem; padding: .75rem 1.5rem;
-          border-bottom: 1px solid var(--border); flex-wrap: wrap;
-        }
-        .chat-page-title {
-          flex: 1; font-size: 1rem; font-weight: 600;
-          white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
-        }
-        .chat-layout {
-          display: grid; grid-template-columns: 1fr 1fr;
-          gap: 1rem; padding: 1rem 1.5rem;
-          flex: 1; min-height: 0;
-          height: calc(100vh - 120px);
-        }
-        .chat-pdf-panel, .chat-panel { height: 100%; min-height: 500px; }
-        @media (max-width: 768px) {
-          .chat-layout { grid-template-columns: 1fr; height: auto; }
-          .chat-pdf-panel { height: 50vh; }
-          .chat-panel { height: 60vh; }
-        }
-      `}</style>
     </div>
   );
 }

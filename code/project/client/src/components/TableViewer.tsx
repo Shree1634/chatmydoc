@@ -15,15 +15,13 @@ interface TableViewerProps {
 }
 
 function exportToCSV(table: TableData, index: number) {
-  const rows = [table.headers, ...table.rows];
-  const csv = rows.map(r => r.map(c => `"${c}"`).join(',')).join('\n');
-  const blob = new Blob([csv], { type: 'text/csv' });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = `table-${index + 1}.csv`;
+  const csv = [table.headers, ...table.rows].map(r => r.map(c => `"${c}"`).join(',')).join('\n');
+  const a = Object.assign(document.createElement('a'), {
+    href: URL.createObjectURL(new Blob([csv], { type: 'text/csv' })),
+    download: `table-${index + 1}.csv`,
+  });
   a.click();
-  URL.revokeObjectURL(url);
+  URL.revokeObjectURL(a.href);
 }
 
 export default function TableViewer({ pdfId, initialTables }: TableViewerProps) {
@@ -37,62 +35,72 @@ export default function TableViewer({ pdfId, initialTables }: TableViewerProps) 
       const { data } = await getPDFTablesApi(pdfId);
       if (data.success) {
         setTables(data.data.tables || []);
-        toast.success(
-          data.data.tables?.length ? `Found ${data.data.tables.length} table(s)!` : 'No tables found in this PDF',
-          { id: toastId }
-        );
-      } else {
-        toast.error(data.message || 'Failed to extract tables', { id: toastId });
-      }
+        toast.success(data.data.tables?.length ? `Found ${data.data.tables.length} table(s)!` : 'No tables found', { id: toastId });
+      } else toast.error(data.message || 'Failed', { id: toastId });
     } catch (err: any) {
-      toast.error(err.response?.data?.message || 'Failed to extract tables', { id: toastId });
+      toast.error(err.response?.data?.message || 'Failed', { id: toastId });
     } finally {
       setIsLoading(false);
     }
   };
 
   return (
-    <div className="table-viewer">
-      <div className="table-viewer-header">
-        <div className="table-viewer-title">
-          <Table size={18} color="var(--accent-blue)" />
-          <span>Extracted Tables</span>
+    <div className="flex flex-col gap-4 h-full">
+      <div className="flex items-center justify-between pb-4 border-b border-[#2a2a3a]">
+        <div className="flex items-center gap-2 font-semibold text-[#f0f0ff]">
+          <Table size={17} className="text-blue-400" />
+          Extracted Tables
           {tables.length > 0 && (
-            <span className="badge badge-blue">{tables.length}</span>
+            <span className="bg-blue-500/20 text-blue-400 text-xs px-2 py-0.5 rounded-full font-semibold">{tables.length}</span>
           )}
         </div>
-        <button className="btn btn-secondary btn-sm" onClick={fetchTables} disabled={isLoading}>
-          {isLoading ? <><div className="spinner" style={{ width: 14, height: 14 }} /> Extracting...</> : <><RefreshCw size={14} /> {tables.length ? 'Re-extract' : 'Extract Tables'}</>}
+        <button
+          onClick={fetchTables}
+          disabled={isLoading}
+          className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-[#1e1e2a] border border-[#2a2a3a] text-[#a0a0b8] hover:border-[#3a3a4a] hover:text-[#f0f0ff] transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+        >
+          {isLoading
+            ? <><div className="spinner w-3 h-3" /> Extracting...</>
+            : <><RefreshCw size={12} /> {tables.length ? 'Re-extract' : 'Extract Tables'}</>}
         </button>
       </div>
 
-      <div className="tables-content">
+      <div className="flex-1 overflow-y-auto flex flex-col gap-4">
         {tables.length > 0 ? (
           tables.map((table, i) => (
             <motion.div
               key={i}
-              initial={{ opacity: 0, y: 8 }}
+              initial={{ opacity: 0, y: 6 }}
               animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: i * .1 }}
-              className="table-card"
+              transition={{ delay: i * 0.1 }}
+              className="bg-[#16161f] border border-[#2a2a3a] rounded-xl overflow-hidden"
             >
-              <div className="table-card-header">
-                <span className="table-label">Table {i + 1}</span>
-                <button className="btn btn-ghost btn-sm" onClick={() => exportToCSV(table, i)}>
-                  <Download size={14} /> Export CSV
+              <div className="flex items-center justify-between px-4 py-2.5 bg-[#111118] border-b border-[#2a2a3a]">
+                <span className="text-xs font-semibold text-[#a0a0b8]">Table {i + 1}</span>
+                <button
+                  onClick={() => exportToCSV(table, i)}
+                  className="flex items-center gap-1 text-xs text-[#606078] hover:text-[#f0f0ff] transition-colors"
+                >
+                  <Download size={12} /> Export CSV
                 </button>
               </div>
-              <div className="table-scroll">
-                <table className="data-table">
+              <div className="overflow-x-auto">
+                <table className="w-full text-xs border-collapse">
                   <thead>
                     <tr>
-                      {table.headers.map((h, j) => <th key={j}>{h}</th>)}
+                      {table.headers.map((h, j) => (
+                        <th key={j} className="bg-purple-500/10 text-purple-400 px-4 py-2 text-left font-semibold whitespace-nowrap border-b border-[#2a2a3a]">
+                          {h}
+                        </th>
+                      ))}
                     </tr>
                   </thead>
                   <tbody>
                     {table.rows.map((row, r) => (
-                      <tr key={r}>
-                        {row.map((cell, c) => <td key={c}>{cell}</td>)}
+                      <tr key={r} className="border-b border-[#2a2a3a] last:border-0 hover:bg-[#1e1e2a] transition-colors">
+                        {row.map((cell, c) => (
+                          <td key={c} className="px-4 py-2 text-[#a0a0b8]">{cell}</td>
+                        ))}
                       </tr>
                     ))}
                   </tbody>
@@ -101,40 +109,15 @@ export default function TableViewer({ pdfId, initialTables }: TableViewerProps) 
             </motion.div>
           ))
         ) : (
-          <div className="empty-state">
-            <Table size={40} style={{ margin: '0 auto 1rem', opacity: .3 }} />
-            <h3>No tables extracted yet</h3>
-            <p>Click "Extract Tables" to find and display all tables in this document</p>
+          <div className="flex flex-col items-center justify-center flex-1 gap-3 text-center">
+            <Table size={40} className="text-[#2a2a3a]" />
+            <div>
+              <h3 className="font-semibold text-[#a0a0b8] mb-1">No tables extracted yet</h3>
+              <p className="text-sm text-[#606078]">Click "Extract Tables" to find all tables in this document</p>
+            </div>
           </div>
         )}
       </div>
-
-      <style>{`
-        .table-viewer { height: 100%; display: flex; flex-direction: column; gap: 1rem; }
-        .table-viewer-header {
-          display: flex; align-items: center; justify-content: space-between;
-          padding-bottom: 1rem; border-bottom: 1px solid var(--border); flex-shrink: 0;
-        }
-        .table-viewer-title { display: flex; align-items: center; gap: .5rem; font-weight: 600; font-size: 1rem; }
-        .tables-content { flex: 1; overflow-y: auto; display: flex; flex-direction: column; gap: 1.25rem; }
-        .table-card { background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius-lg); overflow: hidden; }
-        .table-card-header {
-          display: flex; align-items: center; justify-content: space-between;
-          padding: .75rem 1rem; background: var(--bg-secondary); border-bottom: 1px solid var(--border);
-        }
-        .table-label { font-size: .85rem; font-weight: 600; color: var(--text-secondary); }
-        .table-scroll { overflow-x: auto; }
-        .data-table { width: 100%; border-collapse: collapse; font-size: .85rem; }
-        .data-table th {
-          background: rgba(139,92,246,.1); color: var(--accent-purple);
-          padding: .6rem 1rem; text-align: left; font-weight: 600;
-          white-space: nowrap; border-bottom: 1px solid var(--border);
-        }
-        .data-table td { padding: .55rem 1rem; color: var(--text-secondary); border-bottom: 1px solid var(--border); }
-        .data-table tr:last-child td { border-bottom: none; }
-        .data-table tr:nth-child(even) td { background: rgba(255,255,255,.02); }
-        .data-table tr:hover td { background: var(--bg-card-hover); }
-      `}</style>
     </div>
   );
 }

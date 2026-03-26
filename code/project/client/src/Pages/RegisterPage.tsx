@@ -33,100 +33,131 @@ export default function RegisterPage() {
   const update = (field: string) => (e: React.ChangeEvent<HTMLInputElement>) =>
     setForm({ ...form, [field]: e.target.value });
 
+  const inputClass = (field: string) =>
+    `w-full bg-[#111118] border rounded-lg py-3 text-sm text-[#f0f0ff] placeholder-[#606078] outline-none transition-all focus:ring-2 focus:ring-purple-600/30 ${
+      errors[field] ? 'border-red-500' : 'border-[#2a2a3a] focus:border-purple-600'
+    }`;
+
   return (
-    <div className="auth-page">
+    <div className="min-h-screen bg-[#0a0a0f] bg-auth-glow flex items-center justify-center px-4 py-12">
       <motion.div
-        className="auth-card"
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.4 }}
+        className="w-full max-w-md bg-[#16161f] border border-[#2a2a3a] rounded-2xl p-8 flex flex-col gap-7"
       >
-        <Link to="/" className="auth-logo">
-          <div className="logo-icon"><FileText size={20} /></div>
+        {/* Logo */}
+        <Link to="/" className="flex items-center gap-2 font-bold text-lg text-[#f0f0ff]">
+          <div className="w-9 h-9 rounded-xl btn-gradient flex items-center justify-center">
+            <FileText size={18} className="text-white" />
+          </div>
           <span>ChatMyDoc</span>
         </Link>
 
-        <div className="auth-header">
-          <h1>Create your account</h1>
-          <p>Start chatting with your documents today</p>
+        {/* Header */}
+        <div>
+          <h1 className="text-2xl font-bold text-[#f0f0ff] mb-1">Create your account</h1>
+          <p className="text-sm text-[#a0a0b8]">Start chatting with your documents today</p>
         </div>
 
-        <form className="auth-form" onSubmit={handleSubmit}>
-          <div className="form-group">
-            <label>Username</label>
-            <div className="input-wrap">
-              <User size={16} className="input-icon" />
-              <input className={`input input-with-icon ${errors.username ? 'input-error' : ''}`} type="text" placeholder="johndoe" value={form.username} onChange={update('username')} autoComplete="username" />
+        {/* Form */}
+        <form onSubmit={handleSubmit} className="flex flex-col gap-4">
+          {/* Username */}
+          <div className="flex flex-col gap-1.5">
+            <label className="text-sm font-medium text-[#a0a0b8]">Username</label>
+            <div className="relative">
+              <User size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-[#606078] pointer-events-none" />
+              <input
+                type="text"
+                placeholder="johndoe"
+                value={form.username}
+                onChange={update('username')}
+                autoComplete="username"
+                className={`${inputClass('username')} pl-10 pr-4`}
+              />
             </div>
-            {errors.username && <span className="form-error">{errors.username}</span>}
+            {errors.username && <span className="text-xs text-red-400">{errors.username}</span>}
           </div>
 
-          <div className="form-group">
-            <label>Email address</label>
-            <div className="input-wrap">
-              <Mail size={16} className="input-icon" />
-              <input className={`input input-with-icon ${errors.email ? 'input-error' : ''}`} type="email" placeholder="you@example.com" value={form.email} onChange={update('email')} autoComplete="email" />
+          {/* Email */}
+          <div className="flex flex-col gap-1.5">
+            <label className="text-sm font-medium text-[#a0a0b8]">Email address</label>
+            <div className="relative">
+              <Mail size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-[#606078] pointer-events-none" />
+              <input
+                type="email"
+                placeholder="you@example.com"
+                value={form.email}
+                onChange={update('email')}
+                autoComplete="email"
+                className={`${inputClass('email')} pl-10 pr-4`}
+              />
             </div>
-            {errors.email && <span className="form-error">{errors.email}</span>}
+            {errors.email && <span className="text-xs text-red-400">{errors.email}</span>}
           </div>
 
-          <div className="form-group">
-            <label>Password</label>
-            <div className="input-wrap">
-              <Lock size={16} className="input-icon" />
-              <input className={`input input-with-icon ${errors.password ? 'input-error' : ''}`} type={showPassword ? 'text' : 'password'} placeholder="Min. 6 characters" value={form.password} onChange={update('password')} autoComplete="new-password" />
-              <button type="button" className="toggle-pass" onClick={() => setShowPassword(!showPassword)}>
+          {/* Password */}
+          <div className="flex flex-col gap-1.5">
+            <label className="text-sm font-medium text-[#a0a0b8]">Password</label>
+            <div className="relative">
+              <Lock size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-[#606078] pointer-events-none" />
+              <input
+                type={showPassword ? 'text' : 'password'}
+                placeholder="Min. 6 characters"
+                value={form.password}
+                onChange={update('password')}
+                autoComplete="new-password"
+                className={`${inputClass('password')} pl-10 pr-11`}
+              />
+              <button
+                type="button"
+                onClick={() => setShowPassword(!showPassword)}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-[#606078] hover:text-[#f0f0ff] transition-colors"
+              >
                 {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
               </button>
             </div>
-            {errors.password && <span className="form-error">{errors.password}</span>}
+            {errors.password && <span className="text-xs text-red-400">{errors.password}</span>}
           </div>
 
-          <div className="form-group">
-            <label>Confirm Password</label>
-            <div className="input-wrap">
-              <Lock size={16} className="input-icon" />
-              <input className={`input input-with-icon ${errors.confirmPassword ? 'input-error' : ''}`} type={showPassword ? 'text' : 'password'} placeholder="Repeat your password" value={form.confirmPassword} onChange={update('confirmPassword')} autoComplete="new-password" />
+          {/* Confirm Password */}
+          <div className="flex flex-col gap-1.5">
+            <label className="text-sm font-medium text-[#a0a0b8]">Confirm Password</label>
+            <div className="relative">
+              <Lock size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-[#606078] pointer-events-none" />
+              <input
+                type={showPassword ? 'text' : 'password'}
+                placeholder="Repeat your password"
+                value={form.confirmPassword}
+                onChange={update('confirmPassword')}
+                autoComplete="new-password"
+                className={`${inputClass('confirmPassword')} pl-10 pr-4`}
+              />
             </div>
-            {errors.confirmPassword && <span className="form-error">{errors.confirmPassword}</span>}
+            {errors.confirmPassword && <span className="text-xs text-red-400">{errors.confirmPassword}</span>}
           </div>
 
-          <button type="submit" className="btn btn-primary auth-submit" disabled={isLoading}>
-            {isLoading ? <><div className="spinner" style={{ width: 16, height: 16 }} /> Creating account...</> : 'Create Account'}
+          {/* Submit */}
+          <button
+            type="submit"
+            disabled={isLoading}
+            className="w-full btn-gradient flex items-center justify-center gap-2 rounded-xl py-3 font-semibold text-white mt-1 disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none"
+          >
+            {isLoading ? (
+              <>
+                <div className="spinner w-4 h-4" />
+                Creating account...
+              </>
+            ) : 'Create Account'}
           </button>
         </form>
 
-        <p className="auth-switch">
-          Already have an account? <Link to="/login">Sign in</Link>
+        {/* Switch */}
+        <p className="text-center text-sm text-[#a0a0b8]">
+          Already have an account?{' '}
+          <Link to="/login" className="text-purple-400 font-medium hover:underline">Sign in</Link>
         </p>
       </motion.div>
-
-      <style>{`
-        .auth-page {
-          min-height: 100vh; display: flex; align-items: center; justify-content: center;
-          padding: 2rem 1rem;
-          background: radial-gradient(ellipse 60% 50% at 50% 0%, rgba(139,92,246,.1), transparent);
-        }
-        .auth-card {
-          width: 100%; max-width: 420px;
-          background: var(--bg-card); border: 1px solid var(--border);
-          border-radius: var(--radius-xl); padding: 2.5rem;
-          display: flex; flex-direction: column; gap: 1.75rem;
-        }
-        .auth-logo { display: flex; align-items: center; gap: .6rem; font-weight: 700; font-size: 1.1rem; }
-        .auth-header h1 { font-size: 1.5rem; font-weight: 700; margin-bottom: .35rem; }
-        .auth-header p { color: var(--text-secondary); font-size: .9rem; }
-        .auth-form { display: flex; flex-direction: column; gap: 1.1rem; }
-        .input-wrap { position: relative; }
-        .input-icon { position: absolute; left: .9rem; top: 50%; transform: translateY(-50%); color: var(--text-muted); pointer-events: none; }
-        .input-with-icon { padding-left: 2.5rem; }
-        .toggle-pass { position: absolute; right: .9rem; top: 50%; transform: translateY(-50%); color: var(--text-muted); background: none; transition: var(--transition); }
-        .toggle-pass:hover { color: var(--text-primary); }
-        .input-error { border-color: var(--error) !important; }
-        .auth-submit { width: 100%; justify-content: center; padding: .8rem; }
-        .auth-switch { text-align: center; font-size: .875rem; color: var(--text-secondary); }
-        .auth-switch a { color: var(--accent-purple); font-weight: 500; }
-        .auth-switch a:hover { text-decoration: underline; }
-      `}</style>
     </div>
   );
 }

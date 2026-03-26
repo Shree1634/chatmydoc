@@ -4,12 +4,12 @@ import { FileText, MessageSquare, Sparkles, Table, Image, GitBranch, ArrowRight,
 import Navbar from '../components/Navbar';
 
 const features = [
-  { icon: MessageSquare, color: '#8b5cf6', title: 'Chat with PDFs', desc: 'Ask questions and get AI-powered answers directly from your documents.' },
-  { icon: Sparkles, color: '#3b82f6', title: 'AI Summaries', desc: 'Get concise, intelligent summaries of long documents in seconds.' },
-  { icon: GitBranch, color: '#10b981', title: 'Document Flow', desc: 'Visualize the structure and outline of your document automatically.' },
-  { icon: Table, color: '#f59e0b', title: 'Table Extraction', desc: 'Automatically extract all tables with CSV export support.' },
-  { icon: Image, color: '#ef4444', title: 'Image Extraction', desc: 'Extract page images from PDF documents with a single click.' },
-  { icon: FileText, color: '#8b5cf6', title: 'Secure Storage', desc: 'Your documents are safely stored and accessible from anywhere.' },
+  { icon: MessageSquare, color: 'bg-purple-500/20 text-purple-400', title: 'Chat with PDFs', desc: 'Ask questions and get AI-powered answers directly from your documents.' },
+  { icon: Sparkles, color: 'bg-blue-500/20 text-blue-400', title: 'AI Summaries', desc: 'Get concise, intelligent summaries of long documents in seconds.' },
+  { icon: GitBranch, color: 'bg-emerald-500/20 text-emerald-400', title: 'Document Flow', desc: 'Visualize the structure and outline of your document automatically.' },
+  { icon: Table, color: 'bg-amber-500/20 text-amber-400', title: 'Table Extraction', desc: 'Automatically extract all tables with CSV export support.' },
+  { icon: Image, color: 'bg-red-500/20 text-red-400', title: 'Image Extraction', desc: 'Extract page images from PDF documents with a single click.' },
+  { icon: FileText, color: 'bg-purple-500/20 text-purple-400', title: 'Secure Storage', desc: 'Your documents are safely stored and accessible from anywhere.' },
 ];
 
 const highlights = [
@@ -21,72 +21,92 @@ const highlights = [
 
 export default function LandingPage() {
   return (
-    <div className="landing">
+    <div className="min-h-screen bg-[#0a0a0f] text-[#f0f0ff]">
       <Navbar />
 
-      {/* Hero */}
-      <section className="hero">
-        <div className="container">
+      {/* ─── Hero ─── */}
+      <section className="px-4 py-20 bg-hero-glow">
+        <div className="max-w-6xl mx-auto grid grid-cols-1 lg:grid-cols-2 gap-16 items-center">
+          {/* Left */}
           <motion.div
-            className="hero-content"
+            className="flex flex-col gap-6"
             initial={{ opacity: 0, y: 30 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: .6 }}
+            transition={{ duration: 0.6 }}
           >
-            <div className="hero-badge">
+            {/* Badge */}
+            <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-purple-500/15 border border-purple-500/30 text-purple-400 text-sm font-semibold w-fit">
               <Sparkles size={14} />
-              <span>Powered by Gemini 1.5 Flash AI</span>
+              Powered by Gemini 1.5 Flash AI
             </div>
-            <h1 className="hero-title">
-              Chat with your <span className="gradient-text">PDF documents</span> intelligently
+
+            <h1 className="text-4xl lg:text-5xl font-extrabold leading-tight">
+              Chat with your{' '}
+              <span className="gradient-text">PDF documents</span>{' '}
+              intelligently
             </h1>
-            <p className="hero-subtitle">
+
+            <p className="text-base text-[#a0a0b8] leading-relaxed max-w-lg">
               Upload any PDF and instantly chat with it, extract tables, generate summaries, visualize document flow, and more — all powered by cutting-edge AI.
             </p>
-            <div className="hero-cta">
-              <Link to="/register" className="btn btn-primary btn-lg">
+
+            <div className="flex flex-wrap gap-4">
+              <Link to="/register" className="btn-gradient flex items-center gap-2 px-6 py-3 rounded-xl font-semibold text-white">
                 Get Started Free <ArrowRight size={18} />
               </Link>
-              <Link to="/login" className="btn btn-secondary btn-lg">
+              <Link to="/login" className="flex items-center gap-2 px-6 py-3 rounded-xl font-semibold bg-[#16161f] border border-[#2a2a3a] text-[#f0f0ff] hover:border-[#3a3a4a] transition-colors">
                 Sign In
               </Link>
             </div>
-            <div className="hero-highlights">
-              {highlights.map((h) => (
-                <span key={h} className="highlight-item">
-                  <CheckCircle size={14} color="var(--success)" />
+
+            <div className="flex flex-wrap gap-4">
+              {highlights.map(h => (
+                <span key={h} className="flex items-center gap-1.5 text-xs text-[#606078]">
+                  <CheckCircle size={13} className="text-emerald-400" />
                   {h}
                 </span>
               ))}
             </div>
           </motion.div>
 
-          {/* Hero Visual */}
+          {/* Right — Chat Preview Card */}
           <motion.div
-            className="hero-visual"
-            initial={{ opacity: 0, scale: .95 }}
+            className="hidden lg:flex justify-center"
+            initial={{ opacity: 0, scale: 0.95 }}
             animate={{ opacity: 1, scale: 1 }}
-            transition={{ duration: .6, delay: .2 }}
+            transition={{ duration: 0.6, delay: 0.2 }}
           >
-            <div className="hero-card">
-              <div className="hero-card-header">
-                <div className="hero-card-dots">
-                  <span /><span /><span />
+            <div className="w-full max-w-sm bg-[#16161f] border border-[#2a2a3a] rounded-2xl overflow-hidden shadow-glow">
+              {/* Card header */}
+              <div className="flex items-center gap-3 px-4 py-3 bg-[#111118] border-b border-[#2a2a3a]">
+                <div className="flex gap-1.5">
+                  {['bg-[#3a3a4a]', 'bg-[#3a3a4a]', 'bg-[#3a3a4a]'].map((c, i) => (
+                    <span key={i} className={`w-3 h-3 ${c} rounded-full`} />
+                  ))}
                 </div>
-                <span className="hero-card-title">ChatMyDoc — AI Assistant</span>
+                <span className="text-xs text-[#606078] font-medium">ChatMyDoc — AI Assistant</span>
               </div>
-              <div className="hero-card-body">
-                <div className="hero-msg ai">
-                  <span>Hello! I've analyzed your document. What would you like to know?</span>
+              {/* Messages */}
+              <div className="p-4 flex flex-col gap-3">
+                <div className="flex">
+                  <span className="bg-[#111118] text-[#a0a0b8] text-xs px-3 py-2 rounded-tl rounded-bl-2xl rounded-br-2xl rounded-tr-2xl max-w-[85%] leading-relaxed">
+                    Hello! I've analyzed your document. What would you like to know?
+                  </span>
                 </div>
-                <div className="hero-msg user">
-                  <span>What are the key findings in this research paper?</span>
+                <div className="flex justify-end">
+                  <span className="btn-gradient text-white text-xs px-3 py-2 rounded-tl-2xl rounded-bl-2xl rounded-br-2xl max-w-[85%] leading-relaxed">
+                    What are the key findings in this research paper?
+                  </span>
                 </div>
-                <div className="hero-msg ai">
-                  <span>Based on the document, there are 3 key findings: 1) Performance improved by 40%, 2) Cost reduction achieved...</span>
+                <div className="flex">
+                  <span className="bg-[#111118] text-[#a0a0b8] text-xs px-3 py-2 rounded-tl rounded-bl-2xl rounded-br-2xl rounded-tr-2xl max-w-[85%] leading-relaxed">
+                    Based on the document, there are 3 key findings: 1) Performance improved by 40%, 2) Cost reduction achieved...
+                  </span>
                 </div>
-                <div className="hero-typing">
-                  <span /><span /><span />
+                <div className="flex items-center gap-1 px-2 py-1">
+                  {[0, 0.2, 0.4].map((delay, i) => (
+                    <span key={i} className="w-1.5 h-1.5 bg-[#606078] rounded-full typing-dot" style={{ animationDelay: `${delay}s` }} />
+                  ))}
                 </div>
               </div>
             </div>
@@ -94,150 +114,71 @@ export default function LandingPage() {
         </div>
       </section>
 
-      {/* Features */}
-      <section className="features">
-        <div className="container">
+      {/* ─── Features ─── */}
+      <section className="px-4 py-20">
+        <div className="max-w-6xl mx-auto">
           <motion.div
-            className="section-header"
+            className="text-center mb-12"
             initial={{ opacity: 0, y: 20 }}
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true }}
           >
-            <h2>Everything you need</h2>
-            <p>Powerful tools to work smarter with your documents</p>
+            <h2 className="text-3xl font-bold mb-2">Everything you need</h2>
+            <p className="text-[#a0a0b8]">Powerful tools to work smarter with your documents</p>
           </motion.div>
-          <div className="features-grid">
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
             {features.map((f, i) => (
               <motion.div
                 key={f.title}
-                className="feature-card card"
+                className="bg-[#16161f] border border-[#2a2a3a] rounded-2xl p-6 flex flex-col gap-3 hover:border-[#3a3a4a] transition-all"
                 initial={{ opacity: 0, y: 20 }}
                 whileInView={{ opacity: 1, y: 0 }}
                 viewport={{ once: true }}
-                transition={{ delay: i * .08 }}
-                whileHover={{ y: -4, transition: { duration: .2 } }}
+                transition={{ delay: i * 0.08 }}
+                whileHover={{ y: -4, transition: { duration: 0.2 } }}
               >
-                <div className="feature-icon" style={{ background: `${f.color}20`, color: f.color }}>
+                <div className={`w-12 h-12 ${f.color} rounded-xl flex items-center justify-center`}>
                   <f.icon size={22} />
                 </div>
-                <h3 className="feature-title">{f.title}</h3>
-                <p className="feature-desc">{f.desc}</p>
+                <h3 className="font-semibold text-base text-[#f0f0ff]">{f.title}</h3>
+                <p className="text-sm text-[#a0a0b8] leading-relaxed">{f.desc}</p>
               </motion.div>
             ))}
           </div>
         </div>
       </section>
 
-      {/* CTA */}
-      <section className="cta-section">
-        <div className="container">
+      {/* ─── CTA ─── */}
+      <section className="px-4 pb-20">
+        <div className="max-w-6xl mx-auto">
           <motion.div
-            className="cta-card"
+            className="bg-gradient-to-br from-purple-500/10 to-blue-500/10 border border-purple-500/20 rounded-3xl p-12 text-center flex flex-col items-center gap-5"
             initial={{ opacity: 0, y: 20 }}
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true }}
           >
-            <h2>Ready to transform how you read?</h2>
-            <p>Join thousands of users who already use ChatMyDoc to work smarter with their documents.</p>
-            <Link to="/register" className="btn btn-primary btn-lg">
+            <h2 className="text-3xl font-bold">Ready to transform how you read?</h2>
+            <p className="text-[#a0a0b8] max-w-md">Join thousands of users who already use ChatMyDoc to work smarter with their documents.</p>
+            <Link to="/register" className="btn-gradient flex items-center gap-2 px-7 py-3 rounded-xl font-semibold text-white">
               Start for Free <ArrowRight size={18} />
             </Link>
           </motion.div>
         </div>
       </section>
 
-      <footer className="footer">
-        <div className="container">
-          <div className="footer-logo">
-            <div className="logo-icon" style={{ width: 28, height: 28, borderRadius: 6 }}>
-              <FileText size={14} />
+      {/* ─── Footer ─── */}
+      <footer className="border-t border-[#2a2a3a] py-6 px-4">
+        <div className="max-w-6xl mx-auto flex items-center justify-between flex-wrap gap-3">
+          <div className="flex items-center gap-2 font-bold text-sm">
+            <div className="w-7 h-7 btn-gradient rounded-lg flex items-center justify-center">
+              <FileText size={13} className="text-white" />
             </div>
-            <span>ChatMyDoc</span>
+            ChatMyDoc
           </div>
-          <p className="footer-copy">© 2025 ChatMyDoc. All rights reserved.</p>
+          <p className="text-xs text-[#606078]">© 2025 ChatMyDoc. All rights reserved.</p>
         </div>
       </footer>
-
-      <style>{`
-        .landing { min-height: 100vh; }
-        .hero {
-          padding: 5rem 0 4rem; background: radial-gradient(ellipse 80% 50% at 50% -20%, rgba(139,92,246,.15), transparent);
-        }
-        .hero .container {
-          display: grid; grid-template-columns: 1fr 1fr; gap: 4rem; align-items: center;
-        }
-        .hero-content { display: flex; flex-direction: column; gap: 1.5rem; }
-        .hero-badge {
-          display: inline-flex; align-items: center; gap: .5rem;
-          padding: .35rem .9rem; border-radius: 99px;
-          background: rgba(139,92,246,.15); border: 1px solid rgba(139,92,246,.3);
-          color: var(--accent-purple); font-size: .8rem; font-weight: 600; width: fit-content;
-        }
-        .hero-title { font-size: clamp(2rem, 4vw, 3rem); font-weight: 800; line-height: 1.2; color: var(--text-primary); }
-        .hero-subtitle { font-size: 1rem; color: var(--text-secondary); line-height: 1.7; max-width: 480px; }
-        .hero-cta { display: flex; gap: 1rem; flex-wrap: wrap; }
-        .hero-highlights { display: flex; flex-wrap: wrap; gap: .75rem; }
-        .highlight-item { display: flex; align-items: center; gap: .4rem; font-size: .8rem; color: var(--text-muted); }
-        
-        .hero-visual { display: flex; justify-content: center; }
-        .hero-card {
-          background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius-xl);
-          overflow: hidden; width: 100%; max-width: 400px; box-shadow: var(--shadow-glow);
-        }
-        .hero-card-header {
-          padding: .85rem 1rem; background: var(--bg-secondary); border-bottom: 1px solid var(--border);
-          display: flex; align-items: center; gap: .75rem;
-        }
-        .hero-card-dots { display: flex; gap: 6px; }
-        .hero-card-dots span { width: 12px; height: 12px; border-radius: 50%; background: var(--border-light); }
-        .hero-card-title { font-size: .8rem; color: var(--text-muted); font-weight: 500; }
-        .hero-card-body { padding: 1.25rem; display: flex; flex-direction: column; gap: .75rem; }
-        .hero-msg { display: flex; }
-        .hero-msg span {
-          padding: .65rem .9rem; border-radius: 12px; font-size: .82rem; line-height: 1.5;
-          max-width: 85%;
-        }
-        .hero-msg.ai span { background: var(--bg-secondary); color: var(--text-secondary); border-radius: 4px 12px 12px 12px; }
-        .hero-msg.user { justify-content: flex-end; }
-        .hero-msg.user span { background: var(--accent-gradient); color: #fff; border-radius: 12px 4px 12px 12px; }
-        .hero-typing { display: flex; gap: 4px; align-items: center; padding: .4rem .5rem; }
-        .hero-typing span { width: 6px; height: 6px; border-radius: 50%; background: var(--text-muted); animation: bounce 1.2s infinite; }
-        .hero-typing span:nth-child(2) { animation-delay: .2s; }
-        .hero-typing span:nth-child(3) { animation-delay: .4s; }
-
-        .features { padding: 5rem 0; }
-        .section-header { text-align: center; margin-bottom: 3rem; }
-        .section-header h2 { font-size: 2rem; font-weight: 700; margin-bottom: .5rem; }
-        .section-header p { color: var(--text-secondary); font-size: 1rem; }
-        .features-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 1.25rem; }
-        .feature-card { display: flex; flex-direction: column; gap: .75rem; }
-        .feature-icon { width: 48px; height: 48px; border-radius: var(--radius-md); display: flex; align-items: center; justify-content: center; }
-        .feature-title { font-size: 1rem; font-weight: 600; }
-        .feature-desc { font-size: .875rem; color: var(--text-secondary); line-height: 1.6; }
-
-        .cta-section { padding: 4rem 0 5rem; }
-        .cta-card {
-          background: linear-gradient(135deg, rgba(139,92,246,.15), rgba(59,130,246,.15));
-          border: 1px solid rgba(139,92,246,.3); border-radius: var(--radius-xl);
-          padding: 3.5rem; text-align: center; display: flex; flex-direction: column; align-items: center; gap: 1.25rem;
-        }
-        .cta-card h2 { font-size: 1.8rem; font-weight: 700; }
-        .cta-card p { color: var(--text-secondary); max-width: 440px; }
-
-        .footer { padding: 2rem 0; border-top: 1px solid var(--border); }
-        .footer .container { display: flex; align-items: center; justify-content: space-between; gap: 1rem; flex-wrap: wrap; }
-        .footer-logo { display: flex; align-items: center; gap: .5rem; font-weight: 700; font-size: .95rem; }
-        .footer-copy { font-size: .8rem; color: var(--text-muted); }
-
-        @media (max-width: 768px) {
-          .hero .container { grid-template-columns: 1fr; text-align: center; gap: 2.5rem; }
-          .hero-subtitle { max-width: 100%; }
-          .hero-cta { justify-content: center; }
-          .hero-highlights { justify-content: center; }
-          .hero-visual { display: none; }
-          .cta-card { padding: 2rem 1.5rem; }
-        }
-      `}</style>
     </div>
   );
 }

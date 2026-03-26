@@ -25,133 +25,96 @@ export default function PDFDetailPage() {
   const { currentPDF, isLoading, fetchPDFById } = usePDFStore();
   const [activeTab, setActiveTab] = useState<Tab>('chat');
 
-  useEffect(() => {
-    if (id) fetchPDFById(id);
-  }, [id, fetchPDFById]);
+  useEffect(() => { if (id) fetchPDFById(id); }, [id, fetchPDFById]);
 
   if (isLoading) {
-    return <div className="page-loader"><div className="spinner" style={{ width: 40, height: 40 }} /></div>;
+    return (
+      <div className="min-h-screen bg-[#0a0a0f] flex items-center justify-center">
+        <div className="spinner w-10 h-10" />
+      </div>
+    );
   }
 
   if (!currentPDF) {
     return (
-      <div className="page-loader">
-        <div className="empty-state">
-          <h3>PDF not found</h3>
-          <Link to="/dashboard" className="btn btn-primary" style={{ marginTop: '1rem' }}>Back to Dashboard</Link>
+      <div className="min-h-screen bg-[#0a0a0f] flex items-center justify-center text-center">
+        <div className="flex flex-col gap-4">
+          <h3 className="text-lg font-semibold text-[#a0a0b8]">PDF not found</h3>
+          <Link to="/dashboard" className="btn-gradient px-5 py-2 rounded-xl text-sm font-semibold text-white">
+            Back to Dashboard
+          </Link>
         </div>
       </div>
     );
   }
 
-  const formatSize = (bytes: number) => bytes < 1024 * 1024 ? `${(bytes / 1024).toFixed(1)} KB` : `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+  const formatSize = (b: number) => b < 1024 * 1024 ? `${(b / 1024).toFixed(1)} KB` : `${(b / (1024 * 1024)).toFixed(1)} MB`;
 
   return (
-    <div className="detail-page">
+    <div className="min-h-screen bg-[#0a0a0f] text-[#f0f0ff]">
       <Navbar />
 
-      <div className="container">
-        {/* Page Header */}
-        <div className="detail-header">
-          <Link to="/dashboard" className="btn btn-ghost btn-sm">
-            <ArrowLeft size={16} /> Dashboard
+      <div className="max-w-6xl mx-auto px-4 py-6">
+        {/* Header */}
+        <div className="flex items-start gap-3 mb-6 flex-wrap">
+          <Link
+            to="/dashboard"
+            className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-sm text-[#606078] hover:text-[#f0f0ff] hover:bg-[#16161f] transition-colors flex-shrink-0"
+          >
+            <ArrowLeft size={15} /> Dashboard
           </Link>
-          <div className="detail-info">
-            <h1 className="detail-title">{currentPDF.title}</h1>
-            <div className="detail-meta">
+          <div className="flex-1 min-w-0">
+            <h1 className="text-xl font-bold truncate">{currentPDF.title}</h1>
+            <div className="flex flex-wrap items-center gap-2 mt-1 text-xs text-[#606078]">
               <span>{formatSize(currentPDF.size)}</span>
               <span>•</span>
               <span>{new Date(currentPDF.uploadedAt).toLocaleDateString()}</span>
               <span>•</span>
-              <a href={currentPDF.url} target="_blank" rel="noopener noreferrer" className="detail-link">
+              <a href={currentPDF.url} target="_blank" rel="noopener noreferrer" className="text-purple-400 hover:underline">
                 Open PDF ↗
               </a>
             </div>
           </div>
-          <Link to={`/pdf/${id}/chat`} className="btn btn-primary btn-sm">
+          <Link
+            to={`/pdf/${id}/chat`}
+            className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-semibold btn-gradient text-white flex-shrink-0"
+          >
             <MessageSquare size={14} /> Full Chat View
           </Link>
         </div>
 
         {/* Tabs */}
-        <div className="tabs">
+        <div className="flex gap-1 border-b border-[#2a2a3a] mb-6 overflow-x-auto">
           {TABS.map(tab => (
             <button
               key={tab.id}
-              className={`tab-btn ${activeTab === tab.id ? 'active' : ''}`}
               onClick={() => setActiveTab(tab.id)}
+              className={`flex items-center gap-1.5 px-4 py-2.5 text-sm font-medium border-b-2 whitespace-nowrap transition-all flex-shrink-0
+                ${activeTab === tab.id
+                  ? 'border-purple-500 text-purple-400'
+                  : 'border-transparent text-[#606078] hover:text-[#a0a0b8]'
+                }`}
             >
               <tab.icon size={14} /> {tab.label}
             </button>
           ))}
         </div>
 
-        {/* Tab Content */}
+        {/* Tab content */}
         <motion.div
           key={activeTab}
           initial={{ opacity: 0, y: 6 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: .2 }}
-          className="tab-content"
+          transition={{ duration: 0.2 }}
+          className={activeTab === 'chat' ? 'h-[65vh]' : 'min-h-[400px] max-h-[70vh] overflow-y-auto'}
         >
-          {activeTab === 'chat' && (
-            <div className="detail-chat-panel">
-              <ChatWindow pdfId={id!} />
-            </div>
-          )}
-          {activeTab === 'summary' && (
-            <div className="detail-panel">
-              <SummaryPanel pdfId={id!} initialSummary={currentPDF.summary} />
-            </div>
-          )}
-          {activeTab === 'flow' && (
-            <div className="detail-panel">
-              <FlowPanel pdfId={id!} />
-            </div>
-          )}
-          {activeTab === 'tables' && (
-            <div className="detail-panel">
-              <TableViewer pdfId={id!} initialTables={currentPDF.tables} />
-            </div>
-          )}
-          {activeTab === 'images' && (
-            <div className="detail-panel">
-              <ImageGallery pdfId={id!} initialImages={currentPDF.images} />
-            </div>
-          )}
+          {activeTab === 'chat' && <ChatWindow pdfId={id!} />}
+          {activeTab === 'summary' && <SummaryPanel pdfId={id!} initialSummary={currentPDF.summary} />}
+          {activeTab === 'flow' && <FlowPanel pdfId={id!} />}
+          {activeTab === 'tables' && <TableViewer pdfId={id!} initialTables={currentPDF.tables} />}
+          {activeTab === 'images' && <ImageGallery pdfId={id!} initialImages={currentPDF.images} />}
         </motion.div>
       </div>
-
-      <style>{`
-        .detail-page { min-height: 100vh; }
-        .detail-page .container { padding: 1.5rem; }
-        .detail-header { display: flex; align-items: flex-start; gap: 1rem; margin-bottom: 1.75rem; flex-wrap: wrap; }
-        .detail-info { flex: 1; }
-        .detail-title { font-size: 1.3rem; font-weight: 700; margin-bottom: .3rem; }
-        .detail-meta { display: flex; align-items: center; gap: .5rem; font-size: .8rem; color: var(--text-muted); flex-wrap: wrap; }
-        .detail-link { color: var(--accent-purple); }
-        .detail-link:hover { text-decoration: underline; }
-        
-        .tabs { display: flex; gap: .25rem; border-bottom: 1px solid var(--border); margin-bottom: 1.5rem; overflow-x: auto; }
-        .tab-btn {
-          display: flex; align-items: center; gap: .4rem;
-          padding: .65rem 1rem; font-size: .875rem; font-weight: 500;
-          color: var(--text-muted); background: transparent;
-          border-bottom: 2px solid transparent; transition: var(--transition);
-          white-space: nowrap; flex-shrink: 0;
-        }
-        .tab-btn:hover { color: var(--text-secondary); }
-        .tab-btn.active { color: var(--accent-purple); border-bottom-color: var(--accent-purple); }
-        
-        .tab-content { min-height: 400px; }
-        .detail-chat-panel { height: 65vh; min-height: 400px; }
-        .detail-panel { min-height: 400px; max-height: 70vh; overflow-y: auto; }
-
-        @media (max-width: 640px) {
-          .detail-header { flex-direction: column; }
-          .detail-chat-panel { height: 70vh; }
-        }
-      `}</style>
     </div>
   );
 }

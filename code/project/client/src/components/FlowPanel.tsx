@@ -8,30 +8,17 @@ interface FlowPanelProps {
   pdfId: string;
 }
 
-function parseFlowItems(text: string): string[] {
+function parseLines(text: string): Array<{ text: string; type: 'heading' | 'bullet' | 'normal' }> {
   return text
     .split('\n')
     .map(l => l.trim())
-    .filter(l => l.length > 0);
-}
-
-function renderFlowLine(line: string, index: number) {
-  const isHeading = /^#{1,4}\s/.test(line) || /^\d+\.\s/.test(line) || /^[A-Z][^a-z]/.test(line);
-  const isBullet = /^[-*•]\s/.test(line);
-  const cleanLine = line.replace(/^#{1,4}\s/, '').replace(/^[-*•]\s/, '').replace(/^\d+\.\s/, '');
-
-  return (
-    <motion.div
-      key={index}
-      initial={{ opacity: 0, x: -8 }}
-      animate={{ opacity: 1, x: 0 }}
-      transition={{ delay: index * 0.03 }}
-      className={`flow-item ${isHeading ? 'flow-heading' : isBullet ? 'flow-bullet' : 'flow-text'}`}
-    >
-      {isBullet && <ChevronRight size={14} className="flow-chevron" />}
-      <span>{cleanLine}</span>
-    </motion.div>
-  );
+    .filter(l => l.length > 0)
+    .map(l => {
+      const isHeading = /^#{1,4}\s/.test(l) || /^\d+\.\s/.test(l);
+      const isBullet = /^[-*•]\s/.test(l);
+      const clean = l.replace(/^#{1,4}\s/, '').replace(/^[-*•]\s/, '').replace(/^\d+\.\s/, '');
+      return { text: clean, type: isHeading ? 'heading' : isBullet ? 'bullet' : 'normal' };
+    });
 }
 
 export default function FlowPanel({ pdfId }: FlowPanelProps) {
@@ -46,58 +33,64 @@ export default function FlowPanel({ pdfId }: FlowPanelProps) {
       if (data.success) {
         setFlow(data.data.flow);
         toast.success('Flow generated!', { id: toastId });
-      } else {
-        toast.error(data.message || 'Failed to generate flow', { id: toastId });
-      }
+      } else toast.error(data.message || 'Failed', { id: toastId });
     } catch (err: any) {
-      toast.error(err.response?.data?.message || 'Failed to generate flow', { id: toastId });
+      toast.error(err.response?.data?.message || 'Failed', { id: toastId });
     } finally {
       setIsLoading(false);
     }
   };
 
-  const flowItems = flow ? parseFlowItems(flow) : [];
+  const items = flow ? parseLines(flow) : [];
 
   return (
-    <div className="flow-panel">
-      <div className="flow-header">
-        <div className="flow-title">
-          <GitBranch size={18} color="var(--accent-blue)" />
-          <span>Document Flow</span>
+    <div className="flex flex-col gap-4 h-full">
+      <div className="flex items-center justify-between pb-4 border-b border-[#2a2a3a]">
+        <div className="flex items-center gap-2 font-semibold text-[#f0f0ff]">
+          <GitBranch size={17} className="text-blue-400" />
+          Document Flow
         </div>
-        <button className="btn btn-secondary btn-sm" onClick={generateFlow} disabled={isLoading}>
-          {isLoading ? <><div className="spinner" style={{ width: 14, height: 14 }} /> Generating...</> : <><RefreshCw size={14} /> {flow ? 'Regenerate' : 'Generate'}</>}
+        <button
+          onClick={generateFlow}
+          disabled={isLoading}
+          className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-[#1e1e2a] border border-[#2a2a3a] text-[#a0a0b8] hover:border-[#3a3a4a] hover:text-[#f0f0ff] transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+        >
+          {isLoading
+            ? <><div className="spinner w-3 h-3" /> Generating...</>
+            : <><RefreshCw size={12} /> {flow ? 'Regenerate' : 'Generate'}</>}
         </button>
       </div>
 
-      <div className="flow-content">
-        {flowItems.length > 0 ? (
+      <div className="flex-1 overflow-y-auto flex flex-col gap-1">
+        {items.length > 0 ? (
           <AnimatePresence>
-            {flowItems.map((line, i) => renderFlowLine(line, i))}
+            {items.map((item, i) => (
+              <motion.div
+                key={i}
+                initial={{ opacity: 0, x: -6 }}
+                animate={{ opacity: 1, x: 0 }}
+                transition={{ delay: i * 0.025 }}
+                className={`text-sm leading-relaxed py-1 flex items-start gap-1.5
+                  ${item.type === 'heading' ? 'font-semibold text-[#f0f0ff] pt-2' : ''}
+                  ${item.type === 'bullet' ? 'text-[#a0a0b8] pl-2' : ''}
+                  ${item.type === 'normal' ? 'text-[#606078] pl-4 text-xs' : ''}
+                `}
+              >
+                {item.type === 'bullet' && <ChevronRight size={13} className="text-purple-400 flex-shrink-0 mt-0.5" />}
+                {item.text}
+              </motion.div>
+            ))}
           </AnimatePresence>
         ) : (
-          <div className="empty-state">
-            <GitBranch size={40} style={{ margin: '0 auto 1rem', opacity: .3 }} />
-            <h3>No flow generated yet</h3>
-            <p>Click "Generate" to create a structured outline of this document</p>
+          <div className="flex flex-col items-center justify-center flex-1 gap-3 text-center">
+            <GitBranch size={40} className="text-[#2a2a3a]" />
+            <div>
+              <h3 className="font-semibold text-[#a0a0b8] mb-1">No flow generated yet</h3>
+              <p className="text-sm text-[#606078]">Click "Generate" to create a structured outline</p>
+            </div>
           </div>
         )}
       </div>
-
-      <style>{`
-        .flow-panel { height: 100%; display: flex; flex-direction: column; gap: 1rem; }
-        .flow-header {
-          display: flex; align-items: center; justify-content: space-between;
-          padding-bottom: 1rem; border-bottom: 1px solid var(--border);
-        }
-        .flow-title { display: flex; align-items: center; gap: .5rem; font-weight: 600; font-size: 1rem; }
-        .flow-content { flex: 1; overflow-y: auto; display: flex; flex-direction: column; gap: .3rem; }
-        .flow-item { display: flex; align-items: flex-start; gap: .5rem; padding: .3rem 0; font-size: .9rem; line-height: 1.6; }
-        .flow-heading { font-weight: 600; color: var(--text-primary); font-size: .95rem; padding: .5rem 0 .2rem; }
-        .flow-bullet { color: var(--text-secondary); padding-left: .5rem; }
-        .flow-text { color: var(--text-muted); padding-left: 1rem; font-size: .85rem; }
-        .flow-chevron { color: var(--accent-purple); flex-shrink: 0; margin-top: 3px; }
-      `}</style>
     </div>
   );
 }

@@ -12,32 +12,39 @@ function MessageBubble({ msg, pdfId }: { msg: ChatMessage; pdfId: string }) {
   const isTemp = msg._id.startsWith('temp-');
 
   return (
-    <div className="chat-message-group">
+    <div className="flex flex-col gap-2">
       {/* User question */}
-      <div className="chat-bubble user-bubble">
-        <div className="bubble-avatar user-av"><User size={14} /></div>
-        <div className="bubble-content user-content">{msg.question}</div>
+      <div className="flex justify-end gap-2 items-start">
+        <div className="max-w-[80%] btn-gradient text-white text-sm px-3.5 py-2.5 rounded-tl-2xl rounded-bl-2xl rounded-br-2xl leading-relaxed">
+          {msg.question}
+        </div>
+        <div className="w-7 h-7 bg-purple-500/20 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5">
+          <User size={13} className="text-purple-400" />
+        </div>
       </div>
 
       {/* AI response */}
-      <div className="chat-bubble ai-bubble">
-        <div className="bubble-avatar ai-av"><Bot size={14} /></div>
-        <div className="bubble-content ai-content">
+      <div className="flex gap-2 items-start">
+        <div className="w-7 h-7 bg-blue-500/20 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5">
+          <Bot size={13} className="text-blue-400" />
+        </div>
+        <div className="max-w-[80%] bg-[#16161f] border border-[#2a2a3a] text-[#f0f0ff] text-sm px-3.5 py-2.5 rounded-tr-2xl rounded-bl-2xl rounded-br-2xl">
           {isTemp || !msg.response ? (
-            <span className="typing-indicator">
-              <span /><span /><span />
+            <span className="flex items-center gap-1 py-1">
+              {[0, 0.2, 0.4].map((d, i) => (
+                <span key={i} className="w-1.5 h-1.5 bg-[#606078] rounded-full typing-dot" style={{ animationDelay: `${d}s` }} />
+              ))}
             </span>
           ) : (
             <>
-              <div className="response-text">{msg.response}</div>
-              <div className="bubble-footer">
-                <span className="bubble-time">{new Date(msg.createdAt).toLocaleTimeString()}</span>
+              <div className="whitespace-pre-wrap leading-relaxed">{msg.response}</div>
+              <div className="flex items-center justify-between mt-2 pt-2 border-t border-[#2a2a3a]">
+                <span className="text-xs text-[#606078]">{new Date(msg.createdAt).toLocaleTimeString()}</span>
                 <button
-                  className="delete-chat-btn"
                   onClick={() => deleteChat(pdfId, msg._id)}
-                  title="Delete message"
+                  className="text-[#606078] hover:text-red-400 p-0.5 rounded transition-colors"
                 >
-                  <Trash2 size={12} />
+                  <Trash2 size={11} />
                 </button>
               </div>
             </>
@@ -52,15 +59,9 @@ export default function ChatWindow({ pdfId }: ChatWindowProps) {
   const { chats, isLoading, isSending, fetchChats, sendMessage } = useChatStore();
   const [question, setQuestion] = useState('');
   const bottomRef = useRef<HTMLDivElement>(null);
-  const inputRef = useRef<HTMLTextAreaElement>(null);
 
-  useEffect(() => {
-    if (pdfId) fetchChats(pdfId);
-  }, [pdfId, fetchChats]);
-
-  useEffect(() => {
-    bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [chats]);
+  useEffect(() => { if (pdfId) fetchChats(pdfId); }, [pdfId, fetchChats]);
+  useEffect(() => { bottomRef.current?.scrollIntoView({ behavior: 'smooth' }); }, [chats]);
 
   const handleSend = async () => {
     if (!question.trim() || isSending) return;
@@ -70,35 +71,36 @@ export default function ChatWindow({ pdfId }: ChatWindowProps) {
   };
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === 'Enter' && !e.shiftKey) {
-      e.preventDefault();
-      handleSend();
-    }
+    if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSend(); }
   };
 
   return (
-    <div className="chat-window">
+    <div className="flex flex-col h-full bg-[#111118] rounded-2xl overflow-hidden border border-[#2a2a3a]">
       {/* Messages */}
-      <div className="chat-messages">
+      <div className="flex-1 overflow-y-auto p-4 flex flex-col gap-4">
         {isLoading && chats.length === 0 ? (
-          <div className="empty-state">
-            <div className="spinner" style={{ margin: '0 auto 1rem' }} />
-            <p>Loading conversation...</p>
+          <div className="flex items-center justify-center h-full">
+            <div className="flex flex-col items-center gap-3">
+              <div className="spinner w-6 h-6" />
+              <p className="text-sm text-[#606078]">Loading conversation...</p>
+            </div>
           </div>
         ) : chats.length === 0 ? (
-          <div className="empty-state">
-            <Bot size={48} style={{ margin: '0 auto 1rem', opacity: .3 }} />
-            <h3>Ask anything about this document</h3>
-            <p>Type your question below to get started</p>
+          <div className="flex flex-col items-center justify-center h-full text-center gap-3">
+            <Bot size={44} className="text-[#2a2a3a]" />
+            <div>
+              <h3 className="font-semibold text-[#a0a0b8] mb-1">Ask anything about this document</h3>
+              <p className="text-sm text-[#606078]">Type your question below to get started</p>
+            </div>
           </div>
         ) : (
           <AnimatePresence initial={false}>
-            {chats.map((msg) => (
+            {chats.map(msg => (
               <motion.div
                 key={msg._id}
                 initial={{ opacity: 0, y: 8 }}
                 animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: .25 }}
+                transition={{ duration: 0.25 }}
               >
                 <MessageBubble msg={msg} pdfId={pdfId} />
               </motion.div>
@@ -109,91 +111,24 @@ export default function ChatWindow({ pdfId }: ChatWindowProps) {
       </div>
 
       {/* Input */}
-      <div className="chat-input-area">
+      <div className="p-3 border-t border-[#2a2a3a] flex gap-2 items-end">
         <textarea
-          ref={inputRef}
-          className="chat-textarea"
+          className="flex-1 bg-[#0a0a0f] border border-[#2a2a3a] rounded-xl px-3 py-2.5 text-sm text-[#f0f0ff] placeholder-[#606078] outline-none resize-none focus:border-purple-600 focus:ring-2 focus:ring-purple-600/20 transition-all leading-snug"
           value={question}
-          onChange={(e) => setQuestion(e.target.value)}
+          onChange={e => setQuestion(e.target.value)}
           onKeyDown={handleKeyDown}
-          placeholder="Ask a question about this document... (Enter to send)"
+          placeholder="Ask a question... (Enter to send)"
           rows={2}
           disabled={isSending}
         />
         <button
-          className="btn btn-primary chat-send-btn"
           onClick={handleSend}
           disabled={!question.trim() || isSending}
+          className="btn-gradient p-2.5 rounded-xl text-white flex items-center justify-center flex-shrink-0 disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none"
         >
-          {isSending ? <Loader2 size={18} className="spin" /> : <Send size={18} />}
+          {isSending ? <Loader2 size={18} className="animate-spin" /> : <Send size={18} />}
         </button>
       </div>
-
-      <style>{`
-        .chat-window {
-          display: flex; flex-direction: column; height: 100%;
-          background: var(--bg-secondary); border-radius: var(--radius-lg);
-          overflow: hidden;
-        }
-        .chat-messages {
-          flex: 1; overflow-y: auto; padding: 1.25rem; display: flex; flex-direction: column; gap: 1rem;
-        }
-        .chat-message-group { display: flex; flex-direction: column; gap: .5rem; }
-        .chat-bubble { display: flex; gap: .6rem; align-items: flex-start; }
-        .user-bubble { flex-direction: row-reverse; }
-        .bubble-avatar {
-          width: 28px; height: 28px; border-radius: 50%;
-          display: flex; align-items: center; justify-content: center;
-          flex-shrink: 0; margin-top: 2px;
-        }
-        .user-av { background: var(--accent-gradient); color: #fff; }
-        .ai-av { background: rgba(59,130,246,.2); color: var(--accent-blue); }
-        .bubble-content {
-          max-width: 80%; padding: .75rem 1rem;
-          border-radius: var(--radius-md); font-size: .9rem; line-height: 1.6;
-        }
-        .user-content {
-          background: var(--accent-gradient); color: #fff;
-          border-radius: var(--radius-md) 4px var(--radius-md) var(--radius-md);
-        }
-        .ai-content {
-          background: var(--bg-card); color: var(--text-primary); border: 1px solid var(--border);
-          border-radius: 4px var(--radius-md) var(--radius-md) var(--radius-md);
-        }
-        .response-text { white-space: pre-wrap; }
-        .bubble-footer {
-          display: flex; justify-content: space-between; align-items: center;
-          margin-top: .5rem; padding-top: .5rem; border-top: 1px solid var(--border);
-        }
-        .bubble-time { font-size: .75rem; color: var(--text-muted); }
-        .delete-chat-btn {
-          background: none; color: var(--text-muted); padding: 2px 4px; border-radius: 4px;
-          transition: var(--transition);
-        }
-        .delete-chat-btn:hover { color: var(--error); }
-        .typing-indicator { display: flex; gap: 4px; align-items: center; padding: 4px 0; }
-        .typing-indicator span {
-          width: 6px; height: 6px; border-radius: 50%; background: var(--text-muted);
-          animation: bounce 1.2s infinite;
-        }
-        .typing-indicator span:nth-child(2) { animation-delay: .2s; }
-        .typing-indicator span:nth-child(3) { animation-delay: .4s; }
-        @keyframes bounce { 0%,80%,100% { transform: scale(.8); opacity: .5; } 40% { transform: scale(1.2); opacity: 1; } }
-        .chat-input-area {
-          padding: 1rem; border-top: 1px solid var(--border);
-          display: flex; gap: .75rem; align-items: flex-end;
-        }
-        .chat-textarea {
-          flex: 1; background: var(--bg-primary); border: 1px solid var(--border);
-          border-radius: var(--radius-md); color: var(--text-primary);
-          padding: .65rem 1rem; font-size: .9rem; font-family: inherit;
-          resize: none; transition: var(--transition); line-height: 1.5;
-        }
-        .chat-textarea:focus { outline: none; border-color: var(--accent-purple); box-shadow: 0 0 0 3px rgba(139,92,246,.15); }
-        .chat-textarea::placeholder { color: var(--text-muted); }
-        .chat-send-btn { padding: .7rem; border-radius: var(--radius-md); flex-shrink: 0; }
-        .spin { animation: spin .7s linear infinite; }
-      `}</style>
     </div>
   );
 }

@@ -1,6 +1,9 @@
 import axios from 'axios';
 
-const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || 'http://localhost:8000';
+const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || 'http://localhost:5001';
+
+// Visible in browser DevTools console — confirms which backend URL is active
+console.log(`🔗 [API] Backend URL: ${BACKEND_URL}`);
 
 const axiosInstance = axios.create({
   baseURL: BACKEND_URL,

@@ -8,43 +8,60 @@ import Navbar from '../components/Navbar';
 import PDFUpload from '../components/PDFUpload';
 
 function PDFCard({ pdf, onDelete }: { pdf: PDFDocument; onDelete: (id: string) => void }) {
-  const navigate = useNavigate();
-  const formatSize = (bytes: number) => {
-    if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
-    return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
-  };
-  const formatDate = (d: string) => new Date(d).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' });
+  const formatSize = (bytes: number) =>
+    bytes < 1024 * 1024 ? `${(bytes / 1024).toFixed(1)} KB` : `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+  const formatDate = (d: string) =>
+    new Date(d).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' });
 
   return (
     <motion.div
       layout
-      initial={{ opacity: 0, scale: .97 }}
+      initial={{ opacity: 0, scale: 0.97 }}
       animate={{ opacity: 1, scale: 1 }}
-      exit={{ opacity: 0, scale: .95 }}
-      className="pdf-card card"
+      exit={{ opacity: 0, scale: 0.95 }}
+      className="group bg-[#16161f] border border-[#2a2a3a] rounded-2xl p-5 flex flex-col gap-3 hover:border-purple-500/40 hover:shadow-glow hover:-translate-y-0.5 transition-all duration-200"
     >
-      <div className="pdf-card-top">
-        <div className="pdf-card-icon"><FileText size={22} /></div>
+      <div className="flex items-center justify-between">
+        <div className="w-11 h-11 bg-purple-500/15 text-purple-400 rounded-xl flex items-center justify-center">
+          <FileText size={22} />
+        </div>
         <button
-          className="btn btn-ghost btn-sm pdf-delete-btn"
           onClick={(e) => { e.stopPropagation(); onDelete(pdf._id); }}
+          className="opacity-0 group-hover:opacity-100 p-2 rounded-lg text-[#606078] hover:text-red-400 hover:bg-red-500/10 transition-all"
           title="Delete PDF"
         >
           <Trash2 size={15} />
         </button>
       </div>
-      <h3 className="pdf-card-title" title={pdf.title}>{pdf.title}</h3>
-      <div className="pdf-card-meta">
-        <span><HardDrive size={12} /> {formatSize(pdf.size)}</span>
-        <span><Calendar size={12} /> {formatDate(pdf.uploadedAt)}</span>
-        <span><MessageSquare size={12} /> {pdf.chatCount ?? pdf.chats?.length ?? 0} chats</span>
+
+      <h3 className="font-semibold text-sm text-[#f0f0ff] leading-snug line-clamp-2" title={pdf.title}>
+        {pdf.title}
+      </h3>
+
+      <div className="flex flex-wrap gap-2">
+        {[
+          { icon: HardDrive, label: formatSize(pdf.size) },
+          { icon: Calendar, label: formatDate(pdf.uploadedAt) },
+          { icon: MessageSquare, label: `${pdf.chatCount ?? pdf.chats?.length ?? 0} chats` },
+        ].map(({ icon: Icon, label }) => (
+          <span key={label} className="flex items-center gap-1 text-xs text-[#606078]">
+            <Icon size={11} />{label}
+          </span>
+        ))}
       </div>
-      <div className="pdf-card-actions">
-        <Link to={`/pdf/${pdf._id}`} className="btn btn-secondary btn-sm" style={{ flex: 1, justifyContent: 'center' }}>
+
+      <div className="flex gap-2 mt-1">
+        <Link
+          to={`/pdf/${pdf._id}`}
+          className="flex-1 flex items-center justify-center py-2 text-xs font-semibold rounded-lg bg-[#1e1e2a] border border-[#2a2a3a] text-[#a0a0b8] hover:border-[#3a3a4a] hover:text-[#f0f0ff] transition-colors"
+        >
           Open
         </Link>
-        <Link to={`/pdf/${pdf._id}/chat`} className="btn btn-primary btn-sm" style={{ flex: 1, justifyContent: 'center' }}>
-          Chat <ArrowRight size={14} />
+        <Link
+          to={`/pdf/${pdf._id}/chat`}
+          className="flex-1 flex items-center justify-center gap-1 py-2 text-xs font-semibold rounded-lg btn-gradient text-white"
+        >
+          Chat <ArrowRight size={12} />
         </Link>
       </div>
     </motion.div>
@@ -58,18 +75,26 @@ export default function DashboardPage() {
 
   useEffect(() => { fetchPDFs(); }, [fetchPDFs]);
 
+  const totalChats = pdfs.reduce((a, p) => a + (p.chatCount ?? p.chats?.length ?? 0), 0);
+  const summarized = pdfs.filter(p => p.summary).length;
+
   return (
-    <div className="dashboard-page">
+    <div className="min-h-screen bg-[#0a0a0f] text-[#f0f0ff]">
       <Navbar />
 
-      <main className="container dashboard-main">
+      <main className="max-w-6xl mx-auto px-4 py-8">
         {/* Header */}
-        <div className="dashboard-header">
+        <div className="flex items-start justify-between flex-wrap gap-4 mb-8">
           <div>
-            <h1 className="dashboard-title">My Documents</h1>
-            <p className="dashboard-sub">Welcome back, <span style={{ color: 'var(--accent-purple)' }}>{user?.username}</span>!</p>
+            <h1 className="text-2xl font-bold mb-1">My Documents</h1>
+            <p className="text-sm text-[#a0a0b8]">
+              Welcome back, <span className="text-purple-400 font-medium">{user?.username}</span>!
+            </p>
           </div>
-          <button className="btn btn-primary" onClick={() => setShowUpload(true)}>
+          <button
+            onClick={() => setShowUpload(true)}
+            className="flex items-center gap-2 btn-gradient px-4 py-2.5 rounded-xl text-sm font-semibold text-white"
+          >
             <Plus size={18} /> Upload PDF
           </button>
         </div>
@@ -77,18 +102,21 @@ export default function DashboardPage() {
         {/* Upload Modal */}
         <AnimatePresence>
           {showUpload && (
-            <motion.div className="upload-modal-overlay" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-              onClick={() => setShowUpload(false)}>
+            <motion.div
+              className="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm flex items-center justify-center px-4"
+              initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+              onClick={() => setShowUpload(false)}
+            >
               <motion.div
-                className="upload-modal"
-                initial={{ opacity: 0, scale: .95, y: 20 }}
+                className="bg-[#16161f] border border-[#2a2a3a] rounded-2xl p-6 w-full max-w-md flex flex-col gap-5"
+                initial={{ opacity: 0, scale: 0.95, y: 20 }}
                 animate={{ opacity: 1, scale: 1, y: 0 }}
-                exit={{ opacity: 0, scale: .95 }}
+                exit={{ opacity: 0, scale: 0.95 }}
                 onClick={e => e.stopPropagation()}
               >
-                <div className="upload-modal-header">
-                  <h2>Upload a PDF</h2>
-                  <button className="btn btn-ghost btn-sm" onClick={() => setShowUpload(false)}>
+                <div className="flex items-center justify-between">
+                  <h2 className="text-lg font-bold">Upload a PDF</h2>
+                  <button onClick={() => setShowUpload(false)} className="p-1.5 rounded-lg text-[#606078] hover:text-[#f0f0ff] hover:bg-[#1e1e2a] transition-colors">
                     <X size={18} />
                   </button>
                 </div>
@@ -99,38 +127,44 @@ export default function DashboardPage() {
         </AnimatePresence>
 
         {/* Stats */}
-        <div className="stats-row">
-          <div className="stat-card card">
-            <span className="stat-number">{pdfs.length}</span>
-            <span className="stat-label">Documents</span>
-          </div>
-          <div className="stat-card card">
-            <span className="stat-number">{pdfs.reduce((a, p) => a + (p.chatCount ?? p.chats?.length ?? 0), 0)}</span>
-            <span className="stat-label">Total Chats</span>
-          </div>
-          <div className="stat-card card">
-            <span className="stat-number">{pdfs.filter(p => p.summary).length}</span>
-            <span className="stat-label">Summarized</span>
-          </div>
+        <div className="grid grid-cols-3 gap-4 mb-8">
+          {[
+            { label: 'Documents', value: pdfs.length },
+            { label: 'Total Chats', value: totalChats },
+            { label: 'Summarized', value: summarized },
+          ].map(({ label, value }) => (
+            <div key={label} className="bg-[#16161f] border border-[#2a2a3a] rounded-2xl p-4 text-center">
+              <span className="block text-3xl font-extrabold gradient-text">{value}</span>
+              <span className="text-xs text-[#606078] font-medium">{label}</span>
+            </div>
+          ))}
         </div>
 
-        {/* Grid */}
+        {/* Content */}
         {isLoading ? (
-          <div className="empty-state" style={{ marginTop: '3rem' }}>
-            <div className="spinner" style={{ margin: '0 auto 1rem', width: 32, height: 32 }} />
-            <p>Loading your documents...</p>
+          <div className="flex flex-col items-center justify-center py-20 gap-3">
+            <div className="spinner w-8 h-8" />
+            <p className="text-sm text-[#606078]">Loading your documents...</p>
           </div>
         ) : pdfs.length === 0 ? (
-          <motion.div className="empty-docs" initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
-            <FileText size={56} style={{ opacity: .2, marginBottom: '1rem' }} />
-            <h3>No documents yet</h3>
-            <p>Upload your first PDF to get started</p>
-            <button className="btn btn-primary" style={{ marginTop: '1.25rem' }} onClick={() => setShowUpload(true)}>
+          <motion.div
+            className="flex flex-col items-center justify-center py-20 gap-4 text-center"
+            initial={{ opacity: 0 }} animate={{ opacity: 1 }}
+          >
+            <FileText size={56} className="text-[#3a3a4a]" />
+            <div>
+              <h3 className="text-lg font-semibold mb-1">No documents yet</h3>
+              <p className="text-sm text-[#606078]">Upload your first PDF to get started</p>
+            </div>
+            <button
+              onClick={() => setShowUpload(true)}
+              className="flex items-center gap-2 btn-gradient px-5 py-2.5 rounded-xl text-sm font-semibold text-white"
+            >
               <Plus size={16} /> Upload PDF
             </button>
           </motion.div>
         ) : (
-          <motion.div className="pdfs-grid" layout>
+          <motion.div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4" layout>
             <AnimatePresence>
               {pdfs.map(pdf => (
                 <PDFCard key={pdf._id} pdf={pdf} onDelete={deletePDF} />
@@ -139,50 +173,6 @@ export default function DashboardPage() {
           </motion.div>
         )}
       </main>
-
-      <style>{`
-        .dashboard-page { min-height: 100vh; }
-        .dashboard-main { padding: 2rem 1.5rem; max-width: 1200px; }
-        .dashboard-header { display: flex; align-items: flex-start; justify-content: space-between; margin-bottom: 2rem; gap: 1rem; flex-wrap: wrap; }
-        .dashboard-title { font-size: 1.75rem; font-weight: 700; margin-bottom: .25rem; }
-        .dashboard-sub { color: var(--text-secondary); font-size: .95rem; }
-        .stats-row { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1rem; margin-bottom: 2rem; }
-        .stat-card { text-align: center; padding: 1.25rem; }
-        .stat-number { display: block; font-size: 2rem; font-weight: 800; background: var(--accent-gradient); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; }
-        .stat-label { font-size: .8rem; color: var(--text-muted); font-weight: 500; }
-        .pdfs-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 1.25rem; }
-        .pdf-card { display: flex; flex-direction: column; gap: .75rem; cursor: default; }
-        .pdf-card:hover { border-color: rgba(139,92,246,.4); box-shadow: var(--shadow-glow); transform: translateY(-2px); }
-        .pdf-card-top { display: flex; align-items: center; justify-content: space-between; }
-        .pdf-card-icon { width: 44px; height: 44px; border-radius: var(--radius-md); background: rgba(139,92,246,.15); color: var(--accent-purple); display: flex; align-items: center; justify-content: center; }
-        .pdf-delete-btn { color: var(--text-muted); opacity: 0; transition: var(--transition); }
-        .pdf-card:hover .pdf-delete-btn { opacity: 1; }
-        .pdf-delete-btn:hover { color: var(--error) !important; }
-        .pdf-card-title { font-weight: 600; font-size: .95rem; line-height: 1.4; overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
-        .pdf-card-meta { display: flex; flex-wrap: wrap; gap: .5rem; }
-        .pdf-card-meta span { display: flex; align-items: center; gap: .3rem; font-size: .75rem; color: var(--text-muted); }
-        .pdf-card-actions { display: flex; gap: .5rem; margin-top: .25rem; }
-        .empty-docs { text-align: center; padding: 4rem 1rem; margin-top: 2rem; }
-        .empty-docs h3 { font-size: 1.25rem; font-weight: 600; margin-bottom: .5rem; }
-        .empty-docs p { color: var(--text-muted); }
-        
-        .upload-modal-overlay {
-          position: fixed; inset: 0; z-index: 200;
-          background: rgba(0,0,0,.7); backdrop-filter: blur(4px);
-          display: flex; align-items: center; justify-content: center; padding: 1rem;
-        }
-        .upload-modal {
-          background: var(--bg-card); border: 1px solid var(--border);
-          border-radius: var(--radius-xl); padding: 1.75rem;
-          width: 100%; max-width: 480px; display: flex; flex-direction: column; gap: 1.25rem;
-        }
-        .upload-modal-header { display: flex; align-items: center; justify-content: space-between; }
-        .upload-modal-header h2 { font-size: 1.2rem; font-weight: 700; }
-        @media (max-width: 640px) {
-          .stats-row { grid-template-columns: repeat(3, 1fr); }
-          .pdfs-grid { grid-template-columns: 1fr; }
-        }
-      `}</style>
     </div>
   );
 }

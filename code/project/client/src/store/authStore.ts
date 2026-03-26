@@ -31,18 +31,29 @@ export const useAuthStore = create<AuthState>()(
       login: async (email, password) => {
         set({ isLoading: true });
         try {
+          console.log('🔑 [LOGIN] Attempting login for:', email);
           const { data } = await loginApi({ email, password });
+          console.log('🔑 [LOGIN] Server response:', data);
           if (data.success) {
             set({ user: data.user, token: data.token, refreshToken: data.refreshToken });
             localStorage.setItem('token', data.token);
             localStorage.setItem('refreshToken', data.refreshToken);
             toast.success(`Welcome back, ${data.user.username}!`);
+            console.log('🔑 [LOGIN] ✅ Success — redirecting to dashboard');
             return true;
           }
-          toast.error(data.message || 'Login failed');
+          const msg = data.message || 'Login failed';
+          console.warn('🔑 [LOGIN] ❌ Server returned failure:', msg);
+          toast.error(msg);
           return false;
         } catch (err: any) {
-          toast.error(err.response?.data?.message || 'Login failed');
+          const msg = err.response?.data?.message || err.message || 'Login failed';
+          console.error('🔑 [LOGIN] ❌ Request error:', {
+            status: err.response?.status,
+            message: msg,
+            url: err.config?.url,
+          });
+          toast.error(msg);
           return false;
         } finally {
           set({ isLoading: false });

@@ -4,50 +4,28 @@ interface PDFViewerProps {
 }
 
 export default function PDFViewer({ url, title }: PDFViewerProps) {
-  // Convert Cloudinary raw PDF URL to an embeddable URL
-  // Cloudinary raw PDFs can be embedded directly via iframe
-  const embedUrl = url.includes('cloudinary.com') && url.includes('/raw/')
-    ? url.replace('/raw/', '/image/').replace(/\.pdf$/, '.pdf') // keep pdf
-    : url;
-
   return (
-    <div className="pdf-viewer">
-      {title && <div className="pdf-viewer-header"><span>{title}</span></div>}
+    <div className="flex flex-col h-full bg-[#16161f] border border-[#2a2a3a] rounded-2xl overflow-hidden">
+      {title && (
+        <div className="px-4 py-2.5 border-b border-[#2a2a3a] text-sm font-medium text-[#a0a0b8] truncate flex-shrink-0">
+          {title}
+        </div>
+      )}
       <iframe
         src={`${url}#toolbar=1&navpanes=1&scrollbar=1`}
-        className="pdf-iframe"
+        className="flex-1 w-full border-none bg-white min-h-0"
         title={title || 'PDF Viewer'}
       />
-      <div className="pdf-viewer-footer">
-        <a href={url} target="_blank" rel="noopener noreferrer" className="btn btn-secondary btn-sm">
+      <div className="px-4 py-2 border-t border-[#2a2a3a] flex justify-end flex-shrink-0">
+        <a
+          href={url}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-semibold bg-[#1e1e2a] border border-[#2a2a3a] text-[#a0a0b8] hover:border-[#3a3a4a] hover:text-[#f0f0ff] transition-colors"
+        >
           Open in new tab ↗
         </a>
       </div>
-
-      <style>{`
-        .pdf-viewer {
-          display: flex; flex-direction: column;
-          height: 100%; background: var(--bg-card);
-          border-radius: var(--radius-lg); overflow: hidden;
-          border: 1px solid var(--border);
-        }
-        .pdf-viewer-header {
-          padding: .75rem 1rem;
-          border-bottom: 1px solid var(--border);
-          font-size: .85rem; font-weight: 500;
-          color: var(--text-secondary);
-          white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
-        }
-        .pdf-iframe {
-          flex: 1; width: 100%; border: none;
-          background: #fff; min-height: 400px;
-        }
-        .pdf-viewer-footer {
-          padding: .65rem 1rem;
-          border-top: 1px solid var(--border);
-          display: flex; justify-content: flex-end;
-        }
-      `}</style>
     </div>
   );
 }

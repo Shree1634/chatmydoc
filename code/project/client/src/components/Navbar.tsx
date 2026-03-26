@@ -1,6 +1,6 @@
 import { Link, useNavigate, useLocation } from 'react-router-dom';
-import { motion } from 'framer-motion';
-import { FileText, LayoutDashboard, LogOut, User, Menu, X } from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
+import { FileText, LayoutDashboard, LogOut, Menu, X } from 'lucide-react';
 import { useState } from 'react';
 import { useAuthStore } from '../store/authStore';
 
@@ -18,137 +18,106 @@ export default function Navbar() {
   const isActive = (path: string) => location.pathname === path;
 
   return (
-    <nav className="navbar">
-      <div className="container navbar-inner">
+    <nav className="sticky top-0 z-50 bg-[#0a0a0f]/85 backdrop-blur-xl border-b border-[#2a2a3a]">
+      <div className="max-w-6xl mx-auto px-4 flex items-center justify-between h-14">
         {/* Logo */}
-        <Link to="/" className="navbar-logo">
-          <div className="logo-icon">
-            <FileText size={20} />
+        <Link to="/" className="flex items-center gap-2 font-bold text-[#f0f0ff]">
+          <div className="w-8 h-8 btn-gradient rounded-lg flex items-center justify-center">
+            <FileText size={16} className="text-white" />
           </div>
-          <span>ChatMyDoc</span>
+          <span className="text-base">ChatMyDoc</span>
         </Link>
 
         {/* Desktop Nav */}
-        <div className="navbar-links desktop-only">
+        <div className="hidden sm:flex items-center gap-2">
           {user ? (
             <>
-              <Link to="/dashboard" className={`nav-link ${isActive('/dashboard') ? 'active' : ''}`}>
-                <LayoutDashboard size={16} />
-                Dashboard
+              <Link
+                to="/dashboard"
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
+                  isActive('/dashboard')
+                    ? 'bg-[#16161f] text-[#f0f0ff]'
+                    : 'text-[#a0a0b8] hover:text-[#f0f0ff] hover:bg-[#16161f]'
+                }`}
+              >
+                <LayoutDashboard size={15} /> Dashboard
               </Link>
-              <div className="navbar-user">
-                <div className="user-avatar">{user.username[0].toUpperCase()}</div>
-                <span className="user-name">{user.username}</span>
+
+              <div className="flex items-center gap-2 ml-2 pl-2 border-l border-[#2a2a3a]">
+                <div className="w-7 h-7 btn-gradient rounded-full flex items-center justify-center text-xs font-bold text-white">
+                  {user.username[0].toUpperCase()}
+                </div>
+                <span className="text-sm text-[#a0a0b8]">{user.username}</span>
               </div>
-              <button className="btn btn-ghost btn-sm" onClick={handleLogout}>
-                <LogOut size={16} />
-                Logout
+
+              <button
+                onClick={handleLogout}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium text-[#606078] hover:text-[#f0f0ff] hover:bg-[#16161f] transition-colors ml-1"
+              >
+                <LogOut size={15} /> Logout
               </button>
             </>
           ) : (
             <>
-              <Link to="/login" className="btn btn-ghost btn-sm">Login</Link>
-              <Link to="/register" className="btn btn-primary btn-sm">Get Started</Link>
+              <Link to="/login" className="px-3 py-1.5 rounded-lg text-sm font-medium text-[#a0a0b8] hover:text-[#f0f0ff] hover:bg-[#16161f] transition-colors">
+                Login
+              </Link>
+              <Link to="/register" className="flex items-center gap-1 btn-gradient px-4 py-1.5 rounded-lg text-sm font-semibold text-white">
+                Get Started
+              </Link>
             </>
           )}
         </div>
 
-        {/* Mobile Menu Toggle */}
-        <button className="btn btn-ghost btn-sm mobile-only" onClick={() => setMenuOpen(!menuOpen)}>
+        {/* Mobile toggle */}
+        <button
+          onClick={() => setMenuOpen(!menuOpen)}
+          className="sm:hidden p-1.5 rounded-lg text-[#606078] hover:text-[#f0f0ff] hover:bg-[#16161f] transition-colors"
+        >
           {menuOpen ? <X size={20} /> : <Menu size={20} />}
         </button>
       </div>
 
       {/* Mobile Menu */}
-      {menuOpen && (
-        <motion.div
-          initial={{ opacity: 0, y: -10 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="navbar-mobile-menu"
-        >
-          {user ? (
-            <>
-              <Link to="/dashboard" className="mobile-nav-link" onClick={() => setMenuOpen(false)}>
-                <LayoutDashboard size={16} /> Dashboard
-              </Link>
-              <div className="mobile-nav-user">
-                <User size={16} /> {user.username}
-              </div>
-              <button className="mobile-nav-link danger" onClick={handleLogout}>
-                <LogOut size={16} /> Logout
-              </button>
-            </>
-          ) : (
-            <>
-              <Link to="/login" className="mobile-nav-link" onClick={() => setMenuOpen(false)}>Login</Link>
-              <Link to="/register" className="mobile-nav-link" onClick={() => setMenuOpen(false)}>Register</Link>
-            </>
-          )}
-        </motion.div>
-      )}
-
-      <style>{`
-        .navbar {
-          position: sticky; top: 0; z-index: 100;
-          background: rgba(10,10,15,.85);
-          backdrop-filter: blur(12px);
-          border-bottom: 1px solid var(--border);
-        }
-        .navbar-inner {
-          display: flex; align-items: center; justify-content: space-between;
-          height: 60px;
-        }
-        .navbar-logo {
-          display: flex; align-items: center; gap: .6rem;
-          font-weight: 700; font-size: 1.1rem; color: var(--text-primary);
-        }
-        .logo-icon {
-          width: 36px; height: 36px; border-radius: var(--radius-md);
-          background: var(--accent-gradient);
-          display: flex; align-items: center; justify-content: center;
-          color: #fff;
-        }
-        .navbar-links { display: flex; align-items: center; gap: .75rem; }
-        .nav-link {
-          display: flex; align-items: center; gap: .4rem;
-          font-size: .9rem; font-weight: 500;
-          color: var(--text-secondary);
-          padding: .4rem .8rem; border-radius: var(--radius-sm);
-          transition: var(--transition);
-        }
-        .nav-link:hover, .nav-link.active { color: var(--text-primary); background: var(--bg-card); }
-        .navbar-user { display: flex; align-items: center; gap: .5rem; padding: 0 .5rem; }
-        .user-avatar {
-          width: 32px; height: 32px; border-radius: 50%;
-          background: var(--accent-gradient);
-          display: flex; align-items: center; justify-content: center;
-          font-weight: 700; font-size: .85rem; color: #fff;
-        }
-        .user-name { font-size: .9rem; font-weight: 500; color: var(--text-secondary); }
-        .desktop-only { display: flex; }
-        .mobile-only { display: none; }
-        .navbar-mobile-menu {
-          padding: .75rem 1rem 1rem;
-          border-top: 1px solid var(--border);
-          display: flex; flex-direction: column; gap: .25rem;
-        }
-        .mobile-nav-link {
-          display: flex; align-items: center; gap: .5rem;
-          padding: .65rem .75rem; border-radius: var(--radius-md);
-          font-size: .9rem; font-weight: 500;
-          color: var(--text-secondary);
-          background: transparent;
-          transition: var(--transition);
-          text-align: left; width: 100%;
-        }
-        .mobile-nav-link:hover { background: var(--bg-card); color: var(--text-primary); }
-        .mobile-nav-link.danger { color: var(--error); }
-        .mobile-nav-user { display: flex; align-items: center; gap: .5rem; padding: .65rem .75rem; color: var(--text-muted); font-size: .85rem; }
-        @media (max-width: 640px) {
-          .desktop-only { display: none; }
-          .mobile-only { display: flex; }
-        }
-      `}</style>
+      <AnimatePresence>
+        {menuOpen && (
+          <motion.div
+            initial={{ opacity: 0, y: -8 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -8 }}
+            className="sm:hidden px-4 pb-3 border-t border-[#2a2a3a] flex flex-col gap-1 pt-2"
+          >
+            {user ? (
+              <>
+                <Link
+                  to="/dashboard"
+                  className="flex items-center gap-2 px-3 py-2.5 rounded-lg text-sm font-medium text-[#a0a0b8] hover:text-[#f0f0ff] hover:bg-[#16161f] transition-colors"
+                  onClick={() => setMenuOpen(false)}
+                >
+                  <LayoutDashboard size={15} /> Dashboard
+                </Link>
+                <div className="flex items-center gap-2 px-3 py-2 text-sm text-[#606078]">
+                  <div className="w-6 h-6 btn-gradient rounded-full flex items-center justify-center text-xs font-bold text-white">
+                    {user.username[0].toUpperCase()}
+                  </div>
+                  {user.username}
+                </div>
+                <button
+                  onClick={handleLogout}
+                  className="flex items-center gap-2 px-3 py-2.5 rounded-lg text-sm font-medium text-red-400 hover:bg-red-500/10 transition-colors text-left"
+                >
+                  <LogOut size={15} /> Logout
+                </button>
+              </>
+            ) : (
+              <>
+                <Link to="/login" className="px-3 py-2.5 rounded-lg text-sm text-[#a0a0b8] hover:bg-[#16161f] transition-colors" onClick={() => setMenuOpen(false)}>Login</Link>
+                <Link to="/register" className="px-3 py-2.5 rounded-lg text-sm text-[#a0a0b8] hover:bg-[#16161f] transition-colors" onClick={() => setMenuOpen(false)}>Register</Link>
+              </>
+            )}
+          </motion.div>
+        )}
+      </AnimatePresence>
     </nav>
   );
 }
