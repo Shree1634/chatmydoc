@@ -1,23 +1,30 @@
 import mongoose from 'mongoose';
-import dotenv from 'dotenv';
-dotenv.config();
 
-const MONGODB_URL = process.env.MONGODB_URL;
+// ─── Connection event listeners ───────────────────────────
+mongoose.connection.on('connected', () =>
+    console.log('✅ Mongoose: connection established')
+);
+mongoose.connection.on('error', (err) =>
+    console.error('❌ Mongoose error:', err.message)
+);
+mongoose.connection.on('disconnected', () =>
+    console.warn('⚠️  Mongoose: disconnected')
+);
 
 const connectDB = async () => {
+    const url = process.env.MONGODB_URL;
+
+    if (!url) {
+        console.error('❌ [DB] MONGODB_URL is not set — cannot connect');
+        process.exit(1);
+    }
+
     try {
-        if (!MONGODB_URL) {
-            console.error('[connectDB] MONGODB_URL is not set in environment variables');
-            process.exit(1);
-        }
-
-        const conn = await mongoose.connect(MONGODB_URL, {
-            serverSelectionTimeoutMS: 5000,
-        });
-
-        console.log(`[connectDB] MongoDB connected: ${conn.connection.host}`);
+        // NOTE: Do NOT pass useNewUrlParser / useUnifiedTopology — removed in Mongoose 7+
+        const conn = await mongoose.connect(url);
+        console.log(`✅ [DB] MongoDB connected: ${conn.connection.host}`);
     } catch (error) {
-        console.error('[connectDB] MongoDB connection failed:', error.message);
+        console.error('❌ [DB] Connection failed:', error.message);
         process.exit(1);
     }
 };

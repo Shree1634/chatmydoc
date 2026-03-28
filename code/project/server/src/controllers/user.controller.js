@@ -1,98 +1,91 @@
 import jwt from 'jsonwebtoken';
 import User from '../models/user.model.js';
 
-// ─── Token Generators ────────────────────────────────────────────────────────
+// ─── Token Generators ─────────────────────────────────────
 const generateAccessToken = (id) => {
     const secret = process.env.JWT_SECRET;
-    if (!secret) throw new Error('JWT_SECRET is not set in environment variables');
+    if (!secret) throw new Error('JWT_SECRET is not configured');
     return jwt.sign({ id }, secret, { expiresIn: '7d' });
 };
 
 const generateRefreshToken = (id) => {
-    // Fall back to JWT_SECRET when JWT_REFRESH_SECRET is missing so registration
-    // still works even if the env var was forgotten. Log a warning so it's visible.
+    // JWT_REFRESH_SECRET is required; fall back to JWT_SECRET with a warning
     const secret = process.env.JWT_REFRESH_SECRET || process.env.JWT_SECRET;
-    if (!secret) throw new Error('Neither JWT_REFRESH_SECRET nor JWT_SECRET is set in environment variables');
+    if (!secret) throw new Error('JWT_REFRESH_SECRET is not configured');
     if (!process.env.JWT_REFRESH_SECRET) {
-        console.warn('⚠️  [AUTH] JWT_REFRESH_SECRET not set — falling back to JWT_SECRET for refresh tokens. Add JWT_REFRESH_SECRET to .env for production.');
+        console.warn('⚠️  JWT_REFRESH_SECRET not set — using JWT_SECRET as fallback. Add it to .env');
     }
     return jwt.sign({ id }, secret, { expiresIn: '30d' });
 };
 
-// ─── Register ────────────────────────────────────────────────────────────────
+// ─── Register ─────────────────────────────────────────────
 export const register = async (req, res) => {
-    console.log('\n📋 [REGISTER] Incoming request body:', {
+    console.log('\n📋 [REGISTER] Body received:', {
         username: req.body?.username,
         email: req.body?.email,
-        hasPassword: !!req.body?.password
+        hasPassword: !!req.body?.password,
     });
 
     try {
         const { username, email, password } = req.body;
 
-        // 1. Field validation
+        // 1. Field presence
         if (!username || !email || !password) {
-            console.warn('[REGISTER] ❌ Missing required fields');
-            return res.status(400).json({ success: false, message: 'Please provide username, email and password' });
-        }
-
-        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-        if (!emailRegex.test(email)) {
-            console.warn('[REGISTER] ❌ Invalid email format:', email);
-            return res.status(400).json({ success: false, message: 'Please provide a valid email address' });
-        }
-
-        if (password.length < 6) {
-            console.warn('[REGISTER] ❌ Password too short');
-            return res.status(400).json({ success: false, message: 'Password must be at least 6 characters long' });
-        }
-
-        // 2. Duplicate check
-        console.log('[REGISTER] Checking for existing user with email/username:', email, username);
-        const userExists = await User.findOne({ $or: [{ email }, { username }] });
-        if (userExists) {
-            console.warn('[REGISTER] ❌ Duplicate user found:', userExists.email, userExists.username);
             return res.status(400).json({
                 success: false,
-                message: userExists.email === email.toLowerCase()
-                    ? 'An account with this email already exists'
-                    : 'This username is already taken'
+                message: 'Please provide username, email and password',
             });
         }
 
-        // 3. Create user
-        console.log('[REGISTER] Creating user...');
-        const user = await User.create({ username, email, password });
-        console.log('[REGISTER] ✅ User created with ID:', user._id);
+        // 2. Email format
+        if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+            return res.status(400).json({ success: false, message: 'Invalid email address' });
+        }
 
-        // 4. Generate tokens
+        // 3. Password length
+        if (password.length < 6) {
+            return res.status(400).json({ success: false, message: 'Password must be at least 6 characters' });
+        }
+
+        // 4. Duplicate check
+        const existing = await User.findOne({ $or: [{ email: email.toLowerCase() }, { username }] });
+        if (existing) {
+            const field = existing.email === email.toLowerCase() ? 'email' : 'username';
+            return res.status(400).json({
+                success: false,
+                message: field === 'email'
+                    ? 'An account with this email already exists'
+                    : 'This username is already taken',
+            });
+        }
+
+        // 5. Create (password hashed by pre-save hook in model)
+        const user = await User.create({ username, email, password });
+        console.log('✅ [REGISTER] User created:', user._id);
+
         const token = generateAccessToken(user._id);
         const refreshToken = generateRefreshToken(user._id);
-        console.log('[REGISTER] ✅ Tokens generated successfully');
 
-        res.status(201).json({
+        return res.status(201).json({
             success: true,
             token,
             refreshToken,
-            user: { id: user._id, username: user.username, email: user.email }
+            user: { id: user._id, username: user.username, email: user.email },
         });
     } catch (error) {
-        console.error('[REGISTER] ❌ Caught error:', error.message);
-        console.error('[REGISTER] Stack:', error.stack);
-
+        console.error('❌ [REGISTER] Error:', error.message);
         if (error.code === 11000) {
             const field = Object.keys(error.keyPattern || {})[0] || 'field';
             return res.status(400).json({ success: false, message: `${field} already exists` });
         }
-        res.status(500).json({
-            success: false,
-            message: 'Registration failed — ' + error.message
-        });
+        return res.status(500).json({ success: false, message: 'Registration failed: ' + error.message });
     }
 };
 
-// ─── Login ───────────────────────────────────────────────────────────────────
+// ─── Login ────────────────────────────────────────────────
 export const login = async (req, res) => {
+    console.log('\n🔑 [LOGIN] Attempt for:', req.body?.email);
+
     try {
         const { email, password } = req.body;
 
@@ -100,31 +93,36 @@ export const login = async (req, res) => {
             return res.status(400).json({ success: false, message: 'Please provide email and password' });
         }
 
-        const user = await User.findOne({ email }).select('+password');
+        // Must select('+password') because schema has select:false
+        const user = await User.findOne({ email: email.toLowerCase() }).select('+password');
         if (!user) {
-            return res.status(401).json({ success: false, message: 'Invalid credentials' });
+            console.warn('⚠️  [LOGIN] No user found for email:', email);
+            return res.status(401).json({ success: false, message: 'Invalid email or password' });
         }
 
         const isMatch = await user.comparePassword(password);
         if (!isMatch) {
-            return res.status(401).json({ success: false, message: 'Invalid credentials' });
+            console.warn('⚠️  [LOGIN] Wrong password for:', email);
+            return res.status(401).json({ success: false, message: 'Invalid email or password' });
         }
 
         const token = generateAccessToken(user._id);
         const refreshToken = generateRefreshToken(user._id);
+        console.log('✅ [LOGIN] Success for:', email);
 
-        res.status(200).json({
+        return res.status(200).json({
             success: true,
             token,
             refreshToken,
-            user: { id: user._id, username: user.username, email: user.email }
+            user: { id: user._id, username: user.username, email: user.email },
         });
     } catch (error) {
-        res.status(500).json({ success: false, message: 'Error logging in', error: error.message });
+        console.error('❌ [LOGIN] Error:', error.message);
+        return res.status(500).json({ success: false, message: 'Login failed: ' + error.message });
     }
 };
 
-// ─── Refresh Token ────────────────────────────────────────────────────────────
+// ─── Refresh Token ────────────────────────────────────────
 export const refreshToken = async (req, res) => {
     try {
         const { refreshToken: token } = req.body;
@@ -132,110 +130,90 @@ export const refreshToken = async (req, res) => {
             return res.status(401).json({ success: false, message: 'Refresh token required' });
         }
 
-        const decoded = jwt.verify(token, process.env.JWT_REFRESH_SECRET);
+        const secret = process.env.JWT_REFRESH_SECRET || process.env.JWT_SECRET;
+        const decoded = jwt.verify(token, secret);
         const user = await User.findById(decoded.id);
         if (!user) {
             return res.status(404).json({ success: false, message: 'User not found' });
         }
 
-        const newAccessToken = generateAccessToken(user._id);
+        const newToken = generateAccessToken(user._id);
         const newRefreshToken = generateRefreshToken(user._id);
 
-        res.status(200).json({
-            success: true,
-            token: newAccessToken,
-            refreshToken: newRefreshToken
-        });
-    } catch (error) {
-        res.status(403).json({ success: false, message: 'Invalid or expired refresh token' });
+        return res.status(200).json({ success: true, token: newToken, refreshToken: newRefreshToken });
+    } catch {
+        return res.status(403).json({ success: false, message: 'Invalid or expired refresh token' });
     }
 };
 
-// ─── Logout ──────────────────────────────────────────────────────────────────
-export const logout = async (req, res) => {
-    res.status(200).json({ success: true, message: 'Logged out successfully' });
+// ─── Logout ───────────────────────────────────────────────
+export const logout = async (_req, res) => {
+    return res.status(200).json({ success: true, message: 'Logged out successfully' });
 };
 
-// ─── Get Profile ─────────────────────────────────────────────────────────────
+// ─── Get Profile ──────────────────────────────────────────
 export const getProfile = async (req, res) => {
     try {
-        if (!req.user?._id) {
-            return res.status(401).json({ success: false, message: 'Not authenticated' });
-        }
-
         const user = await User.findById(req.user._id);
-        if (!user) {
-            return res.status(404).json({ success: false, message: 'User not found' });
-        }
+        if (!user) return res.status(404).json({ success: false, message: 'User not found' });
 
         const PDF = (await import('../models/pdf.model.js')).default;
         const pdfCount = await PDF.countDocuments({ user: user._id });
 
-        res.status(200).json({
+        return res.status(200).json({
             success: true,
-            data: { id: user._id, username: user.username, email: user.email, createdAt: user.createdAt, pdfCount }
+            data: { id: user._id, username: user.username, email: user.email, createdAt: user.createdAt, pdfCount },
         });
     } catch (error) {
-        res.status(500).json({ success: false, message: 'Error fetching user profile', error: error.message });
+        return res.status(500).json({ success: false, message: 'Error fetching profile', error: error.message });
     }
 };
 
-// ─── Update Profile ───────────────────────────────────────────────────────────
+// ─── Update Profile ───────────────────────────────────────
 export const updateProfile = async (req, res) => {
     try {
         const { username, email, currentPassword, newPassword } = req.body;
-
-        if (!req.user?._id) {
-            return res.status(401).json({ success: false, message: 'Not authenticated' });
-        }
-
         const user = await User.findById(req.user._id).select('+password');
-        if (!user) {
-            return res.status(404).json({ success: false, message: 'User not found' });
-        }
+        if (!user) return res.status(404).json({ success: false, message: 'User not found' });
 
-        let isModified = false;
+        let changed = false;
 
         if (username && username !== user.username) {
-            const usernameExists = await User.findOne({ username, _id: { $ne: user._id } });
-            if (usernameExists) return res.status(400).json({ success: false, message: 'Username already taken' });
+            const taken = await User.findOne({ username, _id: { $ne: user._id } });
+            if (taken) return res.status(400).json({ success: false, message: 'Username already taken' });
             user.username = username;
-            isModified = true;
+            changed = true;
         }
 
         if (email && email !== user.email) {
-            const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-            if (!emailRegex.test(email)) return res.status(400).json({ success: false, message: 'Invalid email format' });
-            const emailExists = await User.findOne({ email, _id: { $ne: user._id } });
-            if (emailExists) return res.status(400).json({ success: false, message: 'Email already taken' });
-            user.email = email;
-            isModified = true;
+            if (!/^\S+@\S+\.\S+$/.test(email)) return res.status(400).json({ success: false, message: 'Invalid email' });
+            const taken = await User.findOne({ email, _id: { $ne: user._id } });
+            if (taken) return res.status(400).json({ success: false, message: 'Email already taken' });
+            user.email = email.toLowerCase();
+            changed = true;
         }
 
         if (newPassword && currentPassword) {
-            const isMatch = await user.comparePassword(currentPassword);
-            if (!isMatch) return res.status(401).json({ success: false, message: 'Current password is incorrect' });
-            if (newPassword.length < 6) return res.status(400).json({ success: false, message: 'New password must be at least 6 characters' });
+            const ok = await user.comparePassword(currentPassword);
+            if (!ok) return res.status(401).json({ success: false, message: 'Current password is incorrect' });
+            if (newPassword.length < 6) return res.status(400).json({ success: false, message: 'New password too short' });
             user.password = newPassword;
-            isModified = true;
+            changed = true;
         }
 
-        if (!isModified) {
-            return res.status(400).json({ success: false, message: 'No changes to update' });
-        }
+        if (!changed) return res.status(400).json({ success: false, message: 'No changes to update' });
 
         await user.save();
-
-        res.status(200).json({
+        return res.status(200).json({
             success: true,
             message: 'Profile updated successfully',
-            data: { id: user._id, username: user.username, email: user.email }
+            data: { id: user._id, username: user.username, email: user.email },
         });
     } catch (error) {
         if (error.code === 11000) {
-            const field = Object.keys(error.keyPattern)[0];
+            const field = Object.keys(error.keyPattern || {})[0];
             return res.status(400).json({ success: false, message: `${field} already exists` });
         }
-        res.status(500).json({ success: false, message: 'Error updating profile', error: error.message });
+        return res.status(500).json({ success: false, message: 'Error updating profile', error: error.message });
     }
 };

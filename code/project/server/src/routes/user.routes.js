@@ -5,20 +5,20 @@ import {
     logout,
     refreshToken,
     getProfile,
-    updateProfile
+    updateProfile,
 } from '../controllers/user.controller.js';
 import authMiddleware from '../middleware/auth.js';
 
 const router = express.Router();
 
-// Public routes
-router.post('/register', register);
-router.post('/login', login);
-router.post('/refresh', refreshToken);
+// ─── Public ───────────────────────────────────────────────
+router.post('/register', register);         // POST /api/auth/register
+router.post('/login', login);               // POST /api/auth/login
+router.post('/refresh', refreshToken);      // POST /api/auth/refresh
 
-// Protected routes
-router.post('/logout', authMiddleware, logout);
-router.get('/profile', authMiddleware, getProfile);
-router.put('/profile', authMiddleware, updateProfile);
+// ─── Protected ────────────────────────────────────────────
+router.post('/logout', authMiddleware, logout);          // POST /api/auth/logout
+router.get('/profile', authMiddleware, getProfile);      // GET  /api/auth/profile
+router.put('/profile', authMiddleware, updateProfile);   // PUT  /api/auth/profile
 
 export default router;
