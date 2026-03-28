@@ -2,18 +2,20 @@ import axios from 'axios';
 
 const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || 'http://localhost:5001';
 
-// Visible in browser DevTools console — confirms which backend URL is active
-console.log(`🔗 [API] Backend URL: ${BACKEND_URL}`);
+// Confirm active backend URL in browser DevTools console
+console.log(`🔗 [API] Backend: ${BACKEND_URL}`);
 
 const axiosInstance = axios.create({
   baseURL: BACKEND_URL,
+  withCredentials: true,
   headers: { 'Content-Type': 'application/json' },
   timeout: 30000,
 });
 
-// Request interceptor: attach bearer token
+// ─── Request: attach Bearer token ─────────────────────────
 axiosInstance.interceptors.request.use(
   (config) => {
+    // Read token directly from localStorage (avoids circular Zustand import)
     const token = localStorage.getItem('token');
     if (token) {
       config.headers['Authorization'] = `Bearer ${token}`;
@@ -23,13 +25,21 @@ axiosInstance.interceptors.request.use(
   (error) => Promise.reject(error)
 );
 
-// Response interceptor: handle 401 with refresh token
+// ─── Response: log errors & handle 401 refresh ────────────
 axiosInstance.interceptors.response.use(
   (response) => response,
+
   async (error) => {
     const originalRequest = error.config;
 
-    // If 401 and not already retrying
+    // Log every API error so it's always visible in DevTools
+    console.error('❌ [API] Error:', {
+      status: error.response?.status,
+      url: error.config?.url,
+      message: error.response?.data?.message || error.message,
+    });
+
+    // Auto-refresh on 401
     if (error.response?.status === 401 && !originalRequest._retry) {
       originalRequest._retry = true;
       const refreshToken = localStorage.getItem('refreshToken');
@@ -38,14 +48,14 @@ axiosInstance.interceptors.response.use(
         try {
           const { data } = await axios.post(`${BACKEND_URL}/api/auth/refresh`, { refreshToken });
           localStorage.setItem('token', data.token);
-          localStorage.setItem('refreshToken', data.refreshToken);
+          if (data.refreshToken) localStorage.setItem('refreshToken', data.refreshToken);
           originalRequest.headers['Authorization'] = `Bearer ${data.token}`;
           return axiosInstance(originalRequest);
         } catch {
-          // Refresh failed — clear auth
+          // Refresh failed — purge auth and redirect
           localStorage.removeItem('token');
           localStorage.removeItem('refreshToken');
-          localStorage.removeItem('user');
+          localStorage.removeItem('auth-store');
           window.location.href = '/login';
         }
       } else {
@@ -53,6 +63,7 @@ axiosInstance.interceptors.response.use(
       }
     }
 
+    // Always re-throw so callers can handle errors
     return Promise.reject(error);
   }
 );

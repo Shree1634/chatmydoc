@@ -9,6 +9,13 @@ import PDFDetailPage from './pages/PDFDetailPage';
 import NotFoundPage from './pages/NotFoundPage';
 import ProtectedRoute from './components/ProtectedRoute';
 
+// ─── Dev: health-check on startup ─────────────────────────
+const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || 'http://localhost:5001';
+fetch(`${BACKEND_URL}/api/health`)
+  .then(r => r.json())
+  .then(d => console.log('✅ [APP] Backend connected:', d))
+  .catch(e => console.error('❌ [APP] Backend unreachable — check server is running on', BACKEND_URL, e));
+
 export default function App() {
   return (
     <Router>
@@ -23,25 +30,27 @@ export default function App() {
             fontSize: '0.875rem',
           },
           success: { iconTheme: { primary: '#10b981', secondary: '#16161f' } },
-          error: { iconTheme: { primary: '#ef4444', secondary: '#16161f' } },
+          error:   { iconTheme: { primary: '#ef4444', secondary: '#16161f' } },
           loading: { iconTheme: { primary: '#8b5cf6', secondary: '#16161f' } },
-          duration: 3500,
+          duration: 4000,
         }}
       />
       <Routes>
-        {/* Public routes */}
-        <Route path="/" element={<LandingPage />} />
-        <Route path="/login" element={<LoginPage />} />
+        {/* Public */}
+        <Route path="/"         element={<LandingPage />} />
+        <Route path="/login"    element={<LoginPage />} />
         <Route path="/register" element={<RegisterPage />} />
 
-        {/* Protected routes */}
-        <Route path="/dashboard" element={<ProtectedRoute><DashboardPage /></ProtectedRoute>} />
-        <Route path="/pdf/:id" element={<ProtectedRoute><PDFDetailPage /></ProtectedRoute>} />
-        <Route path="/pdf/:id/chat" element={<ProtectedRoute><ChatPage /></ProtectedRoute>} />
+        {/* Protected routes - wrapped in single ProtectedRoute */}
+        <Route element={<ProtectedRoute />}>
+          <Route path="/dashboard"    element={<DashboardPage />} />
+          <Route path="/pdf/:id"      element={<PDFDetailPage />} />
+          <Route path="/pdf/:id/chat" element={<ChatPage />} />
+        </Route>
 
-        {/* Fallbacks */}
+        {/* Legacy redirects */}
         <Route path="/chat" element={<Navigate to="/dashboard" replace />} />
-        <Route path="*" element={<NotFoundPage />} />
+        <Route path="*"     element={<NotFoundPage />} />
       </Routes>
     </Router>
   );

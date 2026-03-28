@@ -29,7 +29,6 @@ export const register = async (req, res) => {
     try {
         const { username, email, password } = req.body;
 
-        // 1. Field presence
         if (!username || !email || !password) {
             return res.status(400).json({
                 success: false,
@@ -37,17 +36,14 @@ export const register = async (req, res) => {
             });
         }
 
-        // 2. Email format
         if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
             return res.status(400).json({ success: false, message: 'Invalid email address' });
         }
 
-        // 3. Password length
         if (password.length < 6) {
             return res.status(400).json({ success: false, message: 'Password must be at least 6 characters' });
         }
 
-        // 4. Duplicate check
         const existing = await User.findOne({ $or: [{ email: email.toLowerCase() }, { username }] });
         if (existing) {
             const field = existing.email === email.toLowerCase() ? 'email' : 'username';
@@ -59,7 +55,6 @@ export const register = async (req, res) => {
             });
         }
 
-        // 5. Create (password hashed by pre-save hook in model)
         const user = await User.create({ username, email, password });
         console.log('✅ [REGISTER] User created:', user._id);
 
@@ -93,7 +88,6 @@ export const login = async (req, res) => {
             return res.status(400).json({ success: false, message: 'Please provide email and password' });
         }
 
-        // Must select('+password') because schema has select:false
         const user = await User.findOne({ email: email.toLowerCase() }).select('+password');
         if (!user) {
             console.warn('⚠️  [LOGIN] No user found for email:', email);
@@ -126,16 +120,12 @@ export const login = async (req, res) => {
 export const refreshToken = async (req, res) => {
     try {
         const { refreshToken: token } = req.body;
-        if (!token) {
-            return res.status(401).json({ success: false, message: 'Refresh token required' });
-        }
+        if (!token) return res.status(401).json({ success: false, message: 'Refresh token required' });
 
         const secret = process.env.JWT_REFRESH_SECRET || process.env.JWT_SECRET;
         const decoded = jwt.verify(token, secret);
         const user = await User.findById(decoded.id);
-        if (!user) {
-            return res.status(404).json({ success: false, message: 'User not found' });
-        }
+        if (!user) return res.status(404).json({ success: false, message: 'User not found' });
 
         const newToken = generateAccessToken(user._id);
         const newRefreshToken = generateRefreshToken(user._id);

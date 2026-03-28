@@ -1,42 +1,50 @@
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { FileText, Eye, EyeOff, Mail, Lock, User } from 'lucide-react';
+import { FileText, Eye, EyeOff, Mail, Lock, User, AlertCircle } from 'lucide-react';
 import { useAuthStore } from '../store/authStore';
 
 export default function RegisterPage() {
   const { register, isLoading } = useAuthStore();
   const navigate = useNavigate();
 
-  const [form, setForm] = useState({ username: '', email: '', password: '', confirmPassword: '' });
+  const [username, setUsername] = useState('');
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
-  const [errors, setErrors] = useState<Record<string, string>>({});
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
+
+  const clearError = (field: string) =>
+    setFieldErrors(p => ({ ...p, [field]: '' }));
 
   const validate = () => {
     const e: Record<string, string> = {};
-    if (!form.username || form.username.length < 3) e.username = 'Username must be at least 3 characters';
-    if (!form.email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email)) e.email = 'Valid email is required';
-    if (!form.password || form.password.length < 6) e.password = 'Password must be at least 6 characters';
-    if (form.password !== form.confirmPassword) e.confirmPassword = 'Passwords do not match';
+    if (!username.trim() || username.trim().length < 3) e.username = 'Username must be at least 3 characters';
+    if (!email.trim() || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) e.email = 'Valid email is required';
+    if (!password || password.length < 6) e.password = 'Password must be at least 6 characters';
+    if (password !== confirmPassword) e.confirmPassword = 'Passwords do not match';
     return e;
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     const errs = validate();
-    setErrors(errs);
+    setFieldErrors(errs);
     if (Object.keys(errs).length > 0) return;
-    const success = await register(form.username, form.email, form.password);
-    if (success) navigate('/dashboard', { replace: true });
+
+    console.log('📋 [REGISTER PAGE] Submitting:', { username, email });
+    const success = await register(username.trim(), email.trim(), password);
+
+    if (success) {
+      console.log('📋 [REGISTER PAGE] ✅ Redirecting to /dashboard');
+      navigate('/dashboard', { replace: true });
+    }
   };
 
-  const update = (field: string) => (e: React.ChangeEvent<HTMLInputElement>) =>
-    setForm({ ...form, [field]: e.target.value });
-
   const inputClass = (field: string) =>
-    `w-full bg-[#111118] border rounded-lg py-3 text-sm text-[#f0f0ff] placeholder-[#606078] outline-none transition-all focus:ring-2 focus:ring-purple-600/30 ${
-      errors[field] ? 'border-red-500' : 'border-[#2a2a3a] focus:border-purple-600'
-    }`;
+    `w-full bg-[#111118] border rounded-lg py-3 text-sm text-[#f0f0ff] placeholder-[#606078] outline-none transition-all focus:ring-2 focus:ring-purple-600/30 disabled:opacity-60
+    ${fieldErrors[field] ? 'border-red-500' : 'border-[#2a2a3a] focus:border-purple-600'}`;
 
   return (
     <div className="min-h-screen bg-[#0a0a0f] bg-auth-glow flex items-center justify-center px-4 py-12">
@@ -61,94 +69,116 @@ export default function RegisterPage() {
         </div>
 
         {/* Form */}
-        <form onSubmit={handleSubmit} className="flex flex-col gap-4">
+        <form onSubmit={handleSubmit} noValidate className="flex flex-col gap-4">
           {/* Username */}
           <div className="flex flex-col gap-1.5">
-            <label className="text-sm font-medium text-[#a0a0b8]">Username</label>
+            <label htmlFor="username" className="text-sm font-medium text-[#a0a0b8]">Username</label>
             <div className="relative">
               <User size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-[#606078] pointer-events-none" />
               <input
+                id="username"
                 type="text"
                 placeholder="johndoe"
-                value={form.username}
-                onChange={update('username')}
+                value={username}
+                onChange={e => { setUsername(e.target.value); clearError('username'); }}
                 autoComplete="username"
+                disabled={isLoading}
                 className={`${inputClass('username')} pl-10 pr-4`}
               />
             </div>
-            {errors.username && <span className="text-xs text-red-400">{errors.username}</span>}
+            {fieldErrors.username && (
+              <span className="text-xs text-red-400 flex items-center gap-1">
+                <AlertCircle size={11} />{fieldErrors.username}
+              </span>
+            )}
           </div>
 
           {/* Email */}
           <div className="flex flex-col gap-1.5">
-            <label className="text-sm font-medium text-[#a0a0b8]">Email address</label>
+            <label htmlFor="reg-email" className="text-sm font-medium text-[#a0a0b8]">Email address</label>
             <div className="relative">
               <Mail size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-[#606078] pointer-events-none" />
               <input
+                id="reg-email"
                 type="email"
                 placeholder="you@example.com"
-                value={form.email}
-                onChange={update('email')}
+                value={email}
+                onChange={e => { setEmail(e.target.value); clearError('email'); }}
                 autoComplete="email"
+                disabled={isLoading}
                 className={`${inputClass('email')} pl-10 pr-4`}
               />
             </div>
-            {errors.email && <span className="text-xs text-red-400">{errors.email}</span>}
+            {fieldErrors.email && (
+              <span className="text-xs text-red-400 flex items-center gap-1">
+                <AlertCircle size={11} />{fieldErrors.email}
+              </span>
+            )}
           </div>
 
           {/* Password */}
           <div className="flex flex-col gap-1.5">
-            <label className="text-sm font-medium text-[#a0a0b8]">Password</label>
+            <label htmlFor="reg-password" className="text-sm font-medium text-[#a0a0b8]">Password</label>
             <div className="relative">
               <Lock size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-[#606078] pointer-events-none" />
               <input
+                id="reg-password"
                 type={showPassword ? 'text' : 'password'}
                 placeholder="Min. 6 characters"
-                value={form.password}
-                onChange={update('password')}
+                value={password}
+                onChange={e => { setPassword(e.target.value); clearError('password'); }}
                 autoComplete="new-password"
+                disabled={isLoading}
                 className={`${inputClass('password')} pl-10 pr-11`}
               />
               <button
                 type="button"
-                onClick={() => setShowPassword(!showPassword)}
+                onClick={() => setShowPassword(v => !v)}
+                tabIndex={-1}
                 className="absolute right-3 top-1/2 -translate-y-1/2 text-[#606078] hover:text-[#f0f0ff] transition-colors"
               >
                 {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
               </button>
             </div>
-            {errors.password && <span className="text-xs text-red-400">{errors.password}</span>}
+            {fieldErrors.password && (
+              <span className="text-xs text-red-400 flex items-center gap-1">
+                <AlertCircle size={11} />{fieldErrors.password}
+              </span>
+            )}
           </div>
 
           {/* Confirm Password */}
           <div className="flex flex-col gap-1.5">
-            <label className="text-sm font-medium text-[#a0a0b8]">Confirm Password</label>
+            <label htmlFor="confirmPassword" className="text-sm font-medium text-[#a0a0b8]">Confirm Password</label>
             <div className="relative">
               <Lock size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-[#606078] pointer-events-none" />
               <input
+                id="confirmPassword"
                 type={showPassword ? 'text' : 'password'}
                 placeholder="Repeat your password"
-                value={form.confirmPassword}
-                onChange={update('confirmPassword')}
+                value={confirmPassword}
+                onChange={e => { setConfirmPassword(e.target.value); clearError('confirmPassword'); }}
                 autoComplete="new-password"
+                disabled={isLoading}
                 className={`${inputClass('confirmPassword')} pl-10 pr-4`}
               />
             </div>
-            {errors.confirmPassword && <span className="text-xs text-red-400">{errors.confirmPassword}</span>}
+            {fieldErrors.confirmPassword && (
+              <span className="text-xs text-red-400 flex items-center gap-1">
+                <AlertCircle size={11} />{fieldErrors.confirmPassword}
+              </span>
+            )}
           </div>
 
           {/* Submit */}
           <button
             type="submit"
             disabled={isLoading}
-            className="w-full btn-gradient flex items-center justify-center gap-2 rounded-xl py-3 font-semibold text-white mt-1 disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none"
+            className="w-full btn-gradient flex items-center justify-center gap-2 rounded-xl py-3 font-semibold text-white mt-1 disabled:opacity-60 disabled:cursor-not-allowed disabled:transform-none"
           >
-            {isLoading ? (
-              <>
-                <div className="spinner w-4 h-4" />
-                Creating account...
-              </>
-            ) : 'Create Account'}
+            {isLoading
+              ? <><div className="spinner w-4 h-4" /> Creating account...</>
+              : 'Create Account'}
           </button>
         </form>
 

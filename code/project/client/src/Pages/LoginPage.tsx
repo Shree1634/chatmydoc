@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { FileText, Eye, EyeOff, Mail, Lock } from 'lucide-react';
+import { FileText, Eye, EyeOff, Mail, Lock, AlertCircle } from 'lucide-react';
 import { useAuthStore } from '../store/authStore';
 
 export default function LoginPage() {
@@ -10,25 +10,41 @@ export default function LoginPage() {
   const location = useLocation();
   const from = (location.state as any)?.from?.pathname || '/dashboard';
 
-  const [form, setForm] = useState({ email: '', password: '' });
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
-  const [errors, setErrors] = useState<Record<string, string>>({});
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
+  const [serverError, setServerError] = useState('');
 
   const validate = () => {
     const e: Record<string, string> = {};
-    if (!form.email) e.email = 'Email is required';
-    else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email)) e.email = 'Invalid email format';
-    if (!form.password) e.password = 'Password is required';
+    if (!email.trim()) e.email = 'Email is required';
+    else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) e.email = 'Invalid email format';
+    if (!password) e.password = 'Password is required';
     return e;
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    setServerError('');
+    setFieldErrors({});
+
     const errs = validate();
-    setErrors(errs);
-    if (Object.keys(errs).length > 0) return;
-    const success = await login(form.email, form.password);
-    if (success) navigate(from, { replace: true });
+    if (Object.keys(errs).length > 0) {
+      setFieldErrors(errs);
+      return;
+    }
+
+    try {
+      console.log('🔑 Submitting login...');
+      await login(email.trim(), password);
+      console.log('✅ Login success, navigating to dashboard...');
+      navigate(from, { replace: true });
+    } catch (err: any) {
+      console.error('❌ Login error:', err);
+      // Fallback message ensures we never show an empty red box
+      setServerError(err.message || 'Login failed');
+    }
   };
 
   return (
@@ -53,62 +69,76 @@ export default function LoginPage() {
           <p className="text-sm text-[#a0a0b8]">Sign in to continue to your documents</p>
         </div>
 
+        {/* Server error banner */}
+        {serverError && (
+          <div className="flex items-center gap-2 bg-red-500/10 border border-red-500/30 rounded-xl px-4 py-3">
+            <AlertCircle size={16} className="text-red-400 flex-shrink-0" />
+            <p className="text-sm text-red-400">{serverError}</p>
+          </div>
+        )}
+
         {/* Form */}
-        <form onSubmit={handleSubmit} className="flex flex-col gap-5">
+        <form onSubmit={handleSubmit} noValidate className="flex flex-col gap-5">
           {/* Email */}
           <div className="flex flex-col gap-1.5">
-            <label className="text-sm font-medium text-[#a0a0b8]">Email address</label>
+            <label htmlFor="email" className="text-sm font-medium text-[#a0a0b8]">
+              Email address
+            </label>
             <div className="relative">
               <Mail size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-[#606078] pointer-events-none" />
               <input
+                id="email"
                 type="email"
                 placeholder="you@example.com"
-                value={form.email}
-                onChange={e => setForm({ ...form, email: e.target.value })}
+                value={email}
+                onChange={e => { setEmail(e.target.value); setFieldErrors(p => ({ ...p, email: '' })); }}
                 autoComplete="email"
-                className={`w-full bg-[#111118] border rounded-lg pl-10 pr-4 py-3 text-sm text-[#f0f0ff] placeholder-[#606078] outline-none transition-all focus:ring-2 focus:ring-purple-600/30
-                  ${errors.email ? 'border-red-500' : 'border-[#2a2a3a] focus:border-purple-600'}`}
+                disabled={isLoading}
+                className={`w-full bg-[#111118] border rounded-lg pl-10 pr-4 py-3 text-sm text-[#f0f0ff] placeholder-[#606078] outline-none transition-all focus:ring-2 focus:ring-purple-600/30 disabled:opacity-60
+                  ${fieldErrors.email ? 'border-red-500' : 'border-[#2a2a3a] focus:border-purple-600'}`}
               />
             </div>
-            {errors.email && <span className="text-xs text-red-400">{errors.email}</span>}
+            {fieldErrors.email && <span className="text-xs text-red-400 flex items-center gap-1"><AlertCircle size={11} />{fieldErrors.email}</span>}
           </div>
 
           {/* Password */}
           <div className="flex flex-col gap-1.5">
-            <label className="text-sm font-medium text-[#a0a0b8]">Password</label>
+            <label htmlFor="password" className="text-sm font-medium text-[#a0a0b8]">
+              Password
+            </label>
             <div className="relative">
               <Lock size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-[#606078] pointer-events-none" />
               <input
+                id="password"
                 type={showPassword ? 'text' : 'password'}
                 placeholder="Enter your password"
-                value={form.password}
-                onChange={e => setForm({ ...form, password: e.target.value })}
+                value={password}
+                onChange={e => { setPassword(e.target.value); setFieldErrors(p => ({ ...p, password: '' })); }}
                 autoComplete="current-password"
-                className={`w-full bg-[#111118] border rounded-lg pl-10 pr-11 py-3 text-sm text-[#f0f0ff] placeholder-[#606078] outline-none transition-all focus:ring-2 focus:ring-purple-600/30
-                  ${errors.password ? 'border-red-500' : 'border-[#2a2a3a] focus:border-purple-600'}`}
+                disabled={isLoading}
+                className={`w-full bg-[#111118] border rounded-lg pl-10 pr-11 py-3 text-sm text-[#f0f0ff] placeholder-[#606078] outline-none transition-all focus:ring-2 focus:ring-purple-600/30 disabled:opacity-60
+                  ${fieldErrors.password ? 'border-red-500' : 'border-[#2a2a3a] focus:border-purple-600'}`}
               />
               <button
                 type="button"
-                onClick={() => setShowPassword(!showPassword)}
+                onClick={() => setShowPassword(v => !v)}
+                tabIndex={-1}
                 className="absolute right-3 top-1/2 -translate-y-1/2 text-[#606078] hover:text-[#f0f0ff] transition-colors"
               >
                 {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
               </button>
             </div>
-            {errors.password && <span className="text-xs text-red-400">{errors.password}</span>}
+            {fieldErrors.password && <span className="text-xs text-red-400 flex items-center gap-1"><AlertCircle size={11} />{fieldErrors.password}</span>}
           </div>
 
           {/* Submit */}
           <button
             type="submit"
             disabled={isLoading}
-            className="w-full btn-gradient flex items-center justify-center gap-2 rounded-xl py-3 font-semibold text-white disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none"
+            className="w-full btn-gradient flex items-center justify-center gap-2 rounded-xl py-3 font-semibold text-white disabled:opacity-60 disabled:cursor-not-allowed disabled:transform-none"
           >
             {isLoading ? (
-              <>
-                <div className="spinner w-4 h-4" />
-                Signing in...
-              </>
+              <><div className="spinner w-4 h-4" /> Signing in...</>
             ) : 'Sign In'}
           </button>
         </form>

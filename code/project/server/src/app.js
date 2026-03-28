@@ -73,6 +73,20 @@ app.use('/api/auth', authLimiter, userRoutes);
 app.use('/api/chats', generalLimiter, chatRoutes);
 app.use('/api/pdfs', generalLimiter, pdfRoutes);
 
+// ─── Route Debug Log ──────────────────────────────────────
+console.log('📋 Registered routes:');
+app._router.stack
+    .filter(r => r.route || r.name === 'router')
+    .forEach(r => {
+        if (r.route) {
+            console.log(`  ${Object.keys(r.route.methods)[0].toUpperCase()} ${r.route.path}`);
+        } else if (r.handle && r.handle.stack) {
+            r.handle.stack.forEach(s => {
+                if (s.route) console.log(`  ${Object.keys(s.route.methods)[0].toUpperCase()} ${r.regexp} -> ${s.route.path}`);
+            });
+        }
+    });
+
 // ─── 404 handler ──────────────────────────────────────────
 app.use((_req, res) => {
     res.status(404).json({ success: false, message: 'Route not found' });
