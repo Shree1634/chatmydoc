@@ -53,9 +53,7 @@ const aiLimiter = rateLimit({
 
 const authLimiter = rateLimit({
     windowMs: 15 * 60 * 1000,
-    max: 20,
-    standardHeaders: true,
-    legacyHeaders: false,
+    max: process.env.NODE_ENV === 'production' ? 20 : 100,
     message: { success: false, message: 'Too many auth attempts. Please try again later.' },
 });
 

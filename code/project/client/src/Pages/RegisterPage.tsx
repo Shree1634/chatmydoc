@@ -2,10 +2,10 @@ import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { FileText, Eye, EyeOff, Mail, Lock, User, AlertCircle } from 'lucide-react';
-import { useAuthStore } from '../store/authStore';
+import useAuthStore from '../store/authStore';
 
 export default function RegisterPage() {
-  const { register, isLoading } = useAuthStore();
+  const { register } = useAuthStore();
   const navigate = useNavigate();
 
   const [username, setUsername] = useState('');
@@ -14,6 +14,8 @@ export default function RegisterPage() {
   const [confirmPassword, setConfirmPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
+  const [serverError, setServerError] = useState('');
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const clearError = (field: string) =>
     setFieldErrors(p => ({ ...p, [field]: '' }));
@@ -29,16 +31,22 @@ export default function RegisterPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    setServerError('');
     const errs = validate();
     setFieldErrors(errs);
     if (Object.keys(errs).length > 0) return;
+    if (isSubmitting) return;
 
-    console.log('📋 [REGISTER PAGE] Submitting:', { username, email });
-    const success = await register(username.trim(), email.trim(), password);
-
-    if (success) {
+    setIsSubmitting(true);
+    try {
+      console.log('📋 [REGISTER PAGE] Submitting:', { username, email });
+      await register(username.trim(), email.trim(), password);
       console.log('📋 [REGISTER PAGE] ✅ Redirecting to /dashboard');
       navigate('/dashboard', { replace: true });
+    } catch (err: any) {
+      setServerError(err.response?.data?.message || err.message || 'Registration failed');
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -68,6 +76,13 @@ export default function RegisterPage() {
           <p className="text-sm text-[#a0a0b8]">Start chatting with your documents today</p>
         </div>
 
+        {serverError && (
+          <div className="flex items-center gap-2 bg-red-500/10 border border-red-500/30 rounded-xl px-4 py-3">
+            <AlertCircle size={16} className="text-red-400 flex-shrink-0" />
+            <p className="text-sm text-red-400">{serverError}</p>
+          </div>
+        )}
+
         {/* Form */}
         <form onSubmit={handleSubmit} noValidate className="flex flex-col gap-4">
           {/* Username */}
@@ -82,7 +97,7 @@ export default function RegisterPage() {
                 value={username}
                 onChange={e => { setUsername(e.target.value); clearError('username'); }}
                 autoComplete="username"
-                disabled={isLoading}
+                disabled={isSubmitting}
                 className={`${inputClass('username')} pl-10 pr-4`}
               />
             </div>
@@ -105,7 +120,7 @@ export default function RegisterPage() {
                 value={email}
                 onChange={e => { setEmail(e.target.value); clearError('email'); }}
                 autoComplete="email"
-                disabled={isLoading}
+                disabled={isSubmitting}
                 className={`${inputClass('email')} pl-10 pr-4`}
               />
             </div>
@@ -128,7 +143,7 @@ export default function RegisterPage() {
                 value={password}
                 onChange={e => { setPassword(e.target.value); clearError('password'); }}
                 autoComplete="new-password"
-                disabled={isLoading}
+                disabled={isSubmitting}
                 className={`${inputClass('password')} pl-10 pr-11`}
               />
               <button
@@ -159,7 +174,7 @@ export default function RegisterPage() {
                 value={confirmPassword}
                 onChange={e => { setConfirmPassword(e.target.value); clearError('confirmPassword'); }}
                 autoComplete="new-password"
-                disabled={isLoading}
+                disabled={isSubmitting}
                 className={`${inputClass('confirmPassword')} pl-10 pr-4`}
               />
             </div>
@@ -173,10 +188,10 @@ export default function RegisterPage() {
           {/* Submit */}
           <button
             type="submit"
-            disabled={isLoading}
+            disabled={isSubmitting}
             className="w-full btn-gradient flex items-center justify-center gap-2 rounded-xl py-3 font-semibold text-white mt-1 disabled:opacity-60 disabled:cursor-not-allowed disabled:transform-none"
           >
-            {isLoading
+            {isSubmitting
               ? <><div className="spinner w-4 h-4" /> Creating account...</>
               : 'Create Account'}
           </button>

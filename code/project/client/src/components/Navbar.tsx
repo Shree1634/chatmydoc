@@ -2,7 +2,7 @@ import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { FileText, LayoutDashboard, LogOut, Menu, X } from 'lucide-react';
 import { useState } from 'react';
-import { useAuthStore } from '../store/authStore';
+import useAuthStore from '../store/authStore';
 
 export default function Navbar() {
   const { user, logout } = useAuthStore();

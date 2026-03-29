@@ -3,7 +3,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Plus, FileText, Trash2, MessageSquare, Calendar, HardDrive, ArrowRight, X } from 'lucide-react';
 import { usePDFStore, PDFDocument } from '../store/pdfStore';
-import { useAuthStore } from '../store/authStore';
+import useAuthStore from '../store/authStore';
 import Navbar from '../components/Navbar';
 import PDFUpload from '../components/PDFUpload';
 
