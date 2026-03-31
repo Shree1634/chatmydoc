@@ -36,9 +36,20 @@ console.log();
 // ─── Connect DB then start server ────────────────────────
 connectDB()
     .then(() => {
-        app.listen(PORT, () => {
+        const server = app.listen(PORT, () => {
             console.log(`⚙️  Server running at : http://localhost:${PORT}`);
             console.log(`🩺 Health check       : http://localhost:${PORT}/api/health\n`);
+        });
+
+        server.on('error', (err) => {
+            if (err.code === 'EADDRINUSE') {
+                console.error(`❌ Port ${PORT} is already in use!`);
+                console.error(`Run: taskkill /F /IM node.exe`);
+                console.error(`Then restart: npm run dev`);
+                process.exit(1);
+            } else {
+                throw err;
+            }
         });
     })
     .catch((err) => {

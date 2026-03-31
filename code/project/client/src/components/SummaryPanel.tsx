@@ -21,9 +21,9 @@ export default function SummaryPanel({ pdfId, initialSummary }: SummaryPanelProp
       if (data.success) {
         setSummary(data.data.summary);
         toast.success('Summary generated!', { id: toastId });
-      } else toast.error(data.message || 'Failed', { id: toastId });
+      } else toast.error(data.message || 'AI service unavailable. Please check API configuration.', { id: toastId });
     } catch (err: any) {
-      toast.error(err.response?.data?.message || 'Failed to generate summary', { id: toastId });
+      toast.error(err.response?.data?.message || 'AI service unavailable. Please check API configuration.', { id: toastId });
     } finally {
       setIsLoading(false);
     }

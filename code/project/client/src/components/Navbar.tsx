@@ -12,7 +12,7 @@ export default function Navbar() {
 
   const handleLogout = async () => {
     await logout();
-    navigate('/');
+    navigate('/login');
   };
 
   const isActive = (path: string) => location.pathname === path;

@@ -7,9 +7,23 @@ import User from '../models/user.model.js';
 import Chat from '../models/chat.model.js';
 import { extractTextFromPDF, cleanText, smartTruncate, extractTablesFromPDF, extractImagesFromPDF } from '../utils/pdfPreprocessor.js';
 
-// ─── Initialize Gemini AI (gemini-1.5-flash) ──────────────────────────────────
+// ─── Initialize Gemini AI (gemini-1.5-flash-8b) ──────────────────────────────────
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
-const model = genAI.getGenerativeModel({ model: 'gemini-1.5-flash' });
+const model = genAI.getGenerativeModel({ model: 'gemini-1.5-flash-8b' });
+
+// Test Gemini connection on startup
+const testGemini = async () => {
+  try {
+    if (!process.env.GEMINI_API_KEY) throw new Error('No API Key found');
+    const testModel = genAI.getGenerativeModel({ model: 'gemini-1.5-flash-8b' });
+    const result = await testModel.generateContent('Say OK');
+    console.log('✅ [Gemini] Connected successfully:', result.response.text().trim());
+  } catch (err) {
+    console.error('❌ [Gemini] Connection failed:', err.message);
+    console.error('❌ [Gemini] Check GEMINI_API_KEY in server/.env');
+  }
+};
+testGemini();
 
 // ─── Upload PDF ───────────────────────────────────────────────────────────────
 export const uploadPDF = async (req, res) => {

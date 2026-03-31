@@ -64,11 +64,11 @@ export const useChatStore = create<ChatState>()((set) => ({
       } else {
         // Remove temp on error
         set((state) => ({ chats: state.chats.filter(c => c._id !== tempId) }));
-        toast.error(data.message || 'Failed to get answer');
+        toast.error(data.message || 'AI service unavailable. Please check API configuration.');
       }
     } catch (err: any) {
       set((state) => ({ chats: state.chats.filter(c => c._id !== tempId) }));
-      toast.error(err.response?.data?.message || 'Failed to get answer');
+      toast.error(err.response?.data?.message || 'AI service unavailable. Please check API configuration.');
     } finally {
       set({ isSending: false });
     }
