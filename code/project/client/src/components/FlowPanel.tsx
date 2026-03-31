@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { GitBranch, RefreshCw, ChevronRight } from 'lucide-react';
-import { getPDFFlowApi } from '../api/pdf.api';
+import { getFlowApi } from '../api/pdf.api';
 import toast from 'react-hot-toast';
 
 interface FlowPanelProps {
@@ -17,7 +17,7 @@ function parseLines(text: string): Array<{ text: string; type: 'heading' | 'bull
       const isHeading = /^#{1,4}\s/.test(l) || /^\d+\.\s/.test(l);
       const isBullet = /^[-*•]\s/.test(l);
       const clean = l.replace(/^#{1,4}\s/, '').replace(/^[-*•]\s/, '').replace(/^\d+\.\s/, '');
-      return { text: clean, type: isHeading ? 'heading' : isBullet ? 'bullet' : 'normal' };
+      return { text: clean, type: isHeading ? 'bullet' : isBullet ? 'bullet' : 'normal' };
     });
 }
 
@@ -29,7 +29,7 @@ export default function FlowPanel({ pdfId }: FlowPanelProps) {
     setIsLoading(true);
     const toastId = toast.loading('Generating document flow...');
     try {
-      const { data } = await getPDFFlowApi(pdfId);
+      const { data } = await getFlowApi(pdfId);
       if (data.success) {
         setFlow(data.data.flow);
         toast.success('Flow generated!', { id: toastId });

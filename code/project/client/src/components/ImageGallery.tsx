@@ -1,24 +1,23 @@
 import { useState } from 'react';
 import { motion } from 'framer-motion';
 import { Image, Download, RefreshCw, ZoomIn, X } from 'lucide-react';
-import { getPDFImagesApi } from '../api/pdf.api';
+import { getImagesApi } from '../api/pdf.api';
 import toast from 'react-hot-toast';
 
 interface ImageGalleryProps {
   pdfId: string;
-  initialImages?: string[];
 }
 
-export default function ImageGallery({ pdfId, initialImages }: ImageGalleryProps) {
-  const [images, setImages] = useState<string[]>(initialImages || []);
+export default function ImageGallery({ pdfId }: ImageGalleryProps) {
+  const [images, setImages] = useState<string[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [lightboxUrl, setLightboxUrl] = useState<string | null>(null);
 
-  const fetchImages = async () => {
+  const extractImages = async () => {
     setIsLoading(true);
-    const toastId = toast.loading('Extracting images...');
+    const toastId = toast.loading('Finding and extracting images...');
     try {
-      const { data } = await getPDFImagesApi(pdfId);
+      const { data } = await getImagesApi(pdfId);
       if (data.success) {
         setImages(data.data.images || []);
         toast.success(data.data.images?.length ? `Found ${data.data.images.length} image(s)!` : 'No images found', { id: toastId });
@@ -47,7 +46,7 @@ export default function ImageGallery({ pdfId, initialImages }: ImageGalleryProps
           )}
         </div>
         <button
-          onClick={fetchImages}
+          onClick={extractImages}
           disabled={isLoading}
           className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-[#1e1e2a] border border-[#2a2a3a] text-[#a0a0b8] hover:border-[#3a3a4a] hover:text-[#f0f0ff] transition-all disabled:opacity-50 disabled:cursor-not-allowed"
         >

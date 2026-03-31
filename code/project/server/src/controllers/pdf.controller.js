@@ -13,47 +13,55 @@ const model = genAI.getGenerativeModel({ model: 'gemini-1.5-flash' });
 
 // ─── Upload PDF ───────────────────────────────────────────────────────────────
 export const uploadPDF = async (req, res) => {
-    console.log('[uploadPDF] Starting PDF upload process');
-    try {
-        if (!req.file) {
-            return res.status(400).json({ success: false, message: 'No file uploaded' });
-        }
-
-        // Security fix: use req.user._id, not req.body.userId
-        if (!req.user?._id) {
-            return res.status(401).json({ success: false, message: 'Authentication required' });
-        }
-
-        console.log('[uploadPDF] File uploaded via middleware. Path/URL:', req.file.path);
-
-        let rawText = req.body.textContent || '';
-        if (!rawText && req.file.path) {
-            try {
-                rawText = await extractTextFromPDF(req.file.path);
-            } catch (ppErr) {
-                console.error('[uploadPDF] Extraction failed:', ppErr.message);
-            }
-        }
-
-        const cleanedText = cleanText(rawText);
-        console.log(`[uploadPDF] Text extracted. Length: ${cleanedText.length}`);
-
-        const pdf = await PDF.create({
-            user: req.user._id,  // Fixed: use authenticated user ID
-            title: req.body.title || req.file.originalname,
-            originalFilename: req.file.originalname,
-            url: req.file.path,
-            size: req.file.size,
-            textContent: cleanedText || ''
-        });
-
-        console.log('[uploadPDF] PDF created:', pdf._id);
-        res.status(201).json({ success: true, data: pdf });
-    } catch (error) {
-        console.error('[uploadPDF] Unexpected error:', error.message);
-        res.status(500).json({ success: false, message: 'Failed to upload PDF', error: error.message });
+  console.log('[uploadPDF] Step 1: Request received');
+  console.log('[uploadPDF] Step 2: req.file =', req.file);
+  console.log('[uploadPDF] Step 3: req.user =', req.user?._id);
+  console.log('[uploadPDF] Step 4: req.body =', req.body);
+  try {
+    if (!req.file) {
+      return res.status(400).json({ 
+        success: false, 
+        message: 'No file uploaded' 
+      })
     }
-};
+
+    if (!req.user?._id) {
+      return res.status(401).json({ 
+        success: false, 
+        message: 'Authentication required' 
+      })
+    }
+
+    // Extract text from uploaded PDF
+    let textContent = ''
+    try {
+      const rawText = await extractTextFromPDF(req.file.path)
+      textContent = cleanText(rawText)
+    } catch (extractErr) {
+      console.warn('[uploadPDF] Text extraction failed:', extractErr.message)
+      // Continue without text — don't fail the upload
+    }
+
+    const pdf = await PDF.create({
+      user: req.user._id,          // ✅ Use authenticated user
+      title: req.body.title || req.file.originalname,
+      originalFilename: req.file.originalname,
+      url: req.file.path,
+      size: req.file.size || req.file.bytes || 0,
+      textContent: textContent || ''
+    })
+
+    console.log('[uploadPDF] PDF created successfully:', pdf._id)
+    return res.status(201).json({ success: true, data: pdf })
+  } catch (error) {
+    console.error('[uploadPDF] Error:', error)
+    return res.status(500).json({ 
+      success: false, 
+      message: 'Failed to upload PDF', 
+      error: error.message 
+    })
+  }
+}
 
 // ─── Get all PDFs ─────────────────────────────────────────────────────────────
 export const getAllPDFs = async (req, res) => {

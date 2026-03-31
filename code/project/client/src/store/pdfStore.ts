@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import { uploadPDFApi, getUserPDFsApi, getPDFByIdApi, deletePDFApi } from '../api/pdf.api';
+import { uploadPDFApi, getAllPDFsApi, getPDFByIdApi, deletePDFApi } from '../api/pdf.api';
 import toast from 'react-hot-toast';
 
 export interface PDFDocument {
@@ -37,7 +37,7 @@ export const usePDFStore = create<PDFState>()((set, get) => ({
   fetchPDFs: async () => {
     set({ isLoading: true });
     try {
-      const { data } = await getUserPDFsApi();
+      const { data } = await getAllPDFsApi();
       if (data.success) {
         set({ pdfs: data.data });
       }

@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { motion } from 'framer-motion';
 import { Table, Download, RefreshCw } from 'lucide-react';
-import { getPDFTablesApi } from '../api/pdf.api';
+import { getTablesApi } from '../api/pdf.api';
 import toast from 'react-hot-toast';
 
 interface TableData {
@@ -32,7 +32,7 @@ export default function TableViewer({ pdfId, initialTables }: TableViewerProps) 
     setIsLoading(true);
     const toastId = toast.loading('Extracting tables...');
     try {
-      const { data } = await getPDFTablesApi(pdfId);
+      const { data } = await getTablesApi(pdfId);
       if (data.success) {
         setTables(data.data.tables || []);
         toast.success(data.data.tables?.length ? `Found ${data.data.tables.length} table(s)!` : 'No tables found', { id: toastId });
