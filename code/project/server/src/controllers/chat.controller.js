@@ -2,9 +2,25 @@ import { GoogleGenerativeAI } from '@google/generative-ai';
 import Chat from '../models/chat.model.js';
 import PDF from '../models/pdf.model.js';
 
-// ─── Initialize Gemini AI (gemini-flash-latest) ──────────────────────────────────
+// ─── Initialize Gemini AI (gemma-3-4b-it) ──────────────────────────────────
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
-const model = genAI.getGenerativeModel({ model: 'gemini-flash-latest' });
+const model = genAI.getGenerativeModel({ model: 'gemma-3-4b-it' });
+
+const callGeminiWithRetry = async (prompt, retries = 3) => {
+  for (let i = 0; i < retries; i++) {
+    try {
+      const result = await model.generateContent(prompt)
+      return result.response.text()
+    } catch (err) {
+      if (err.message.includes('503') && i < retries - 1) {
+        console.log(`[Gemini] 503 error, retrying in ${(i+1)*2}s...`)
+        await new Promise(r => setTimeout(r, (i+1) * 2000))
+        continue
+      }
+      throw err
+    }
+  }
+}
 
 // Get conversation history
 const getPreviousContext = async (pdfId, limit = 2) => {
@@ -93,9 +109,7 @@ export const askQuestion = async (req, res) => {
 
         let responseText = '';
         try {
-            const result = await model.generateContent(prompt);
-            const response = await result.response;
-            responseText = response.text();
+            responseText = await callGeminiWithRetry(prompt);
             if (!responseText) throw new Error('AI returned empty response');
         } catch (aiError) {
             console.error(`[askQuestion] Gemini API Error:`, aiError.message);

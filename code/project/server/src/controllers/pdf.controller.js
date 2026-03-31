@@ -7,23 +7,25 @@ import User from '../models/user.model.js';
 import Chat from '../models/chat.model.js';
 import { extractTextFromPDF, cleanText, smartTruncate, extractTablesFromPDF, extractImagesFromPDF } from '../utils/pdfPreprocessor.js';
 
-// ─── Initialize Gemini AI (gemini-flash-latest) ──────────────────────────────────
+// ─── Initialize Gemini AI (gemma-3-4b-it) ──────────────────────────────────
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
-const model = genAI.getGenerativeModel({ model: 'gemini-flash-latest' });
+const model = genAI.getGenerativeModel({ model: 'gemma-3-4b-it' });
 
-// Test Gemini connection on startup
-const testGemini = async () => {
-  try {
-    if (!process.env.GEMINI_API_KEY) throw new Error('No API Key found');
-    const testModel = genAI.getGenerativeModel({ model: 'gemini-flash-latest' });
-    const result = await testModel.generateContent('Say OK');
-    console.log('✅ [Gemini] Connected successfully:', result.response.text().trim());
-  } catch (err) {
-    console.error('❌ [Gemini] Connection failed:', err.message);
-    console.error('❌ [Gemini] Check GEMINI_API_KEY in server/.env');
+const callGeminiWithRetry = async (prompt, retries = 3) => {
+  for (let i = 0; i < retries; i++) {
+    try {
+      const result = await model.generateContent(prompt)
+      return result.response.text()
+    } catch (err) {
+      if (err.message.includes('503') && i < retries - 1) {
+        console.log(`[Gemini] 503 error, retrying in ${(i+1)*2}s...`)
+        await new Promise(r => setTimeout(r, (i+1) * 2000))
+        continue
+      }
+      throw err
+    }
   }
-};
-testGemini();
+}
 
 // ─── Upload PDF ───────────────────────────────────────────────────────────────
 export const uploadPDF = async (req, res) => {
@@ -170,8 +172,7 @@ export const summarizePDF = async (req, res) => {
         const context = smartTruncate(cleanText(pdf.textContent));
         const prompt = `Please provide a concise and comprehensive summary of the following document:\n\n${context}`;
 
-        const result = await model.generateContent(prompt);
-        const summary = result.response.text();
+        const summary = await callGeminiWithRetry(prompt);
 
         pdf.summary = summary;
         await pdf.save();
@@ -199,8 +200,7 @@ export const askQuestion = async (req, res) => {
         const context = smartTruncate(cleanText(pdf.textContent));
         const prompt = `Based on the following document content, answer the question below. If the answer is not in the document, say so.\n\nDocument Context:\n${context}\n\nQuestion: ${question}`;
 
-        const result = await model.generateContent(prompt);
-        const response = result.response.text();
+        const response = await callGeminiWithRetry(prompt);
 
         const chat = await Chat.create({ pdfId: pdf._id, userId: req.user._id, question, response });
         await pdf.addChat(chat._id);
@@ -225,8 +225,7 @@ export const generatePDFFlow = async (req, res) => {
         const context = smartTruncate(cleanText(pdf.textContent));
         const prompt = `Generate a structured, step-by-step flow or outline of key concepts from the following text:\n\n${context}`;
 
-        const result = await model.generateContent(prompt);
-        const flow = result.response.text();
+        const flow = await callGeminiWithRetry(prompt);
 
         res.status(200).json({ success: true, data: { flow } });
     } catch (error) {
@@ -268,8 +267,8 @@ IMPORTANT: Return ONLY valid JSON, no markdown, no explanation.
 Text:
 ${context}`;
 
-                const result = await model.generateContent(prompt);
-                const responseText = result.response.text().trim();
+                const rawResponse = await callGeminiWithRetry(prompt);
+                const responseText = rawResponse.trim();
 
                 try {
                     // Strip possible markdown code fences
