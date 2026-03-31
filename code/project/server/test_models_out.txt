@@ -1,0 +1,8 @@
+Testing API key: AIzaSyCMEi...
+---
+??? WORKS: gemini-2.5-flash -> "I cannot physically "say" words as an AI, but I can write it for you:
+
+OK"
+??? WORKS: gemini-flash-latest -> "OK"
+??? WORKS: gemma-3-4b-it -> "OK."
+??? FAIL:  gemini-2.5-pro -> [GoogleGenerativeAI Error]: Error fetching from https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-pro:g

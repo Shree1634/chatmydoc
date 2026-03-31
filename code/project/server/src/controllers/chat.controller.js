@@ -2,9 +2,9 @@ import { GoogleGenerativeAI } from '@google/generative-ai';
 import Chat from '../models/chat.model.js';
 import PDF from '../models/pdf.model.js';
 
-// ─── Initialize Gemini AI (gemini-1.5-flash-8b) ──────────────────────────────────
+// ─── Initialize Gemini AI (gemini-flash-latest) ──────────────────────────────────
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
-const model = genAI.getGenerativeModel({ model: 'gemini-1.5-flash-8b' });
+const model = genAI.getGenerativeModel({ model: 'gemini-flash-latest' });
 
 // Get conversation history
 const getPreviousContext = async (pdfId, limit = 2) => {
