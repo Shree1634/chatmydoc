@@ -2,18 +2,23 @@ import { GoogleGenerativeAI } from '@google/generative-ai';
 import Chat from '../models/chat.model.js';
 import PDF from '../models/pdf.model.js';
 
-// ─── Initialize Gemini AI (gemma-3-4b-it) ──────────────────────────────────
-const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
-const model = genAI.getGenerativeModel({ model: 'gemma-3-4b-it' });
+// ─── Initialize Gemini AI (Lazy Load) ──────────────────────────────────
+const getModel = () => {
+  const apiKey = process.env.GEMINI_API_KEY;
+  if (!apiKey) throw new Error('GEMINI_API_KEY missing in .env');
+  const genAI = new GoogleGenerativeAI(apiKey);
+  return genAI.getGenerativeModel({ model: 'gemma-3-4b-it' });
+};
 
 const callGeminiWithRetry = async (prompt, retries = 3) => {
   for (let i = 0; i < retries; i++) {
     try {
+      const model = getModel();
       const result = await model.generateContent(prompt)
       return result.response.text()
     } catch (err) {
       if (err.message.includes('503') && i < retries - 1) {
-        console.log(`[Gemini] 503 error, retrying in ${(i+1)*2}s...`)
+        console.log(`[Gemini] Retrying in ${(i+1)*2}s...`)
         await new Promise(r => setTimeout(r, (i+1) * 2000))
         continue
       }
