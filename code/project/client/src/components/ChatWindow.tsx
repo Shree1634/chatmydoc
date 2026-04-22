@@ -7,6 +7,78 @@ interface ChatWindowProps {
   pdfId: string;
 }
 
+const formatInline = (text: string) => {
+  // Bold: **text** and Inline code: `code`
+  const parts = text.split(/(\*\*[^*]+\*\*|`[^`]+`)/g)
+  return parts.map((part, i) => {
+    if (part.startsWith('**') && part.endsWith('**')) {
+      return (
+        <strong key={i} className="font-semibold text-white">
+          {part.slice(2, -2)}
+        </strong>
+      )
+    }
+    // Inline code: `code`
+    if (part.startsWith('`') && part.endsWith('`')) {
+      return (
+        <code key={i} 
+          className="bg-black/40 px-1 py-0.5 rounded text-xs 
+                     font-mono text-green-400">
+          {part.slice(1, -1)}
+        </code>
+      )
+    }
+    return part
+  })
+}
+
+const formatMarkdown = (text: string) => {
+  // Split into lines and process each
+  const lines = text.split('\n')
+  return lines.map((line, i) => {
+    // Headers
+    if (line.startsWith('### ')) return (
+      <h3 key={i} className="text-sm font-bold text-white mt-2 mb-1">
+        {line.replace('### ', '')}
+      </h3>
+    )
+    if (line.startsWith('## ')) return (
+      <h2 key={i} className="text-base font-bold text-white mt-3 mb-1">
+        {line.replace('## ', '')}
+      </h2>
+    )
+    if (line.startsWith('# ')) return (
+      <h1 key={i} className="text-lg font-bold text-white mt-3 mb-2">
+        {line.replace('# ', '')}
+      </h1>
+    )
+    // Bullet points
+    if (line.startsWith('* ') || line.startsWith('- ')) return (
+      <div key={i} className="flex gap-2 my-0.5">
+        <span className="text-purple-400 flex-shrink-0">•</span>
+        <span>{formatInline(line.replace(/^[*-] /, ''))}</span>
+      </div>
+    )
+    // Numbered list
+    if (/^\d+\. /.test(line)) return (
+      <div key={i} className="flex gap-2 my-0.5">
+        <span className="text-purple-400 flex-shrink-0">
+          {line.match(/^\d+/)?.[0]}.
+        </span>
+        <span>{formatInline(line.replace(/^\d+\. /, ''))}</span>
+      </div>
+    )
+    // Empty line
+    if (line.trim() === '') return <div key={i} className="h-1" />
+    // Normal paragraph
+    return (
+      <p key={i} className="my-0.5 leading-relaxed">
+        {formatInline(line)}
+      </p>
+    )
+  })
+}
+
 function MessageBubble({ msg, pdfId }: { msg: ChatMessage; pdfId: string }) {
   const { deleteChat } = useChatStore();
   const isTemp = msg._id.startsWith('temp-');
@@ -37,7 +109,9 @@ function MessageBubble({ msg, pdfId }: { msg: ChatMessage; pdfId: string }) {
             </span>
           ) : (
             <>
-              <div className="whitespace-pre-wrap leading-relaxed">{msg.response}</div>
+              <div className="text-sm leading-relaxed space-y-0.5">
+                {formatMarkdown(msg.response)}
+              </div>
               <div className="flex items-center justify-between mt-2 pt-2 border-t border-[#2a2a3a]">
                 <span className="text-xs text-[#606078]">{new Date(msg.createdAt).toLocaleTimeString()}</span>
                 <button

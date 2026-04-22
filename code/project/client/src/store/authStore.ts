@@ -52,3 +52,25 @@ const useAuthStore = create<AuthState>()(
 )
 
 export default useAuthStore
+
+// Clear expired tokens on app start
+const checkAndClearExpiredToken = () => {
+  const stored = localStorage.getItem('auth-storage')
+  if (!stored) return
+  try {
+    const data = JSON.parse(stored)
+    const token = data?.state?.token
+    if (!token) return
+    
+    // Decode JWT to check expiry
+    const payload = JSON.parse(atob(token.split('.')[1]))
+    const expiry = payload.exp * 1000
+    if (Date.now() > expiry) {
+      console.log('[Auth] Clearing expired token from storage')
+      localStorage.removeItem('auth-storage')
+    }
+  } catch (e) {
+    localStorage.removeItem('auth-storage')
+  }
+}
+checkAndClearExpiredToken()

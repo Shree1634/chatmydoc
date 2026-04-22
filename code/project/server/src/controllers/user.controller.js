@@ -5,7 +5,7 @@ import User from '../models/user.model.js';
 const generateAccessToken = (id) => {
     const secret = process.env.JWT_SECRET;
     if (!secret) throw new Error('JWT_SECRET is not configured');
-    return jwt.sign({ id }, secret, { expiresIn: '7d' });
+    return jwt.sign({ id }, secret, { expiresIn: '90d' });
 };
 
 const generateRefreshToken = (id) => {
@@ -15,7 +15,7 @@ const generateRefreshToken = (id) => {
     if (!process.env.JWT_REFRESH_SECRET) {
         console.warn('⚠️  JWT_REFRESH_SECRET not set — using JWT_SECRET as fallback. Add it to .env');
     }
-    return jwt.sign({ id }, secret, { expiresIn: '30d' });
+    return jwt.sign({ id }, secret, { expiresIn: '90d' });
 };
 
 // ─── Register ─────────────────────────────────────────────

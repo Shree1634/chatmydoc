@@ -1,4 +1,5 @@
 import axios from 'axios';
+import useAuthStore from '../store/authStore';
 
 const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || 'http://localhost:5001';
 
@@ -12,11 +13,10 @@ const axiosInstance = axios.create({
   timeout: 30000,
 });
 
-// ─── Request: attach Bearer token ─────────────────────────
+// ─── Request: attach Bearer token from Zustand store ──────
 axiosInstance.interceptors.request.use(
   (config) => {
-    // Read token directly from localStorage (avoids circular Zustand import)
-    const token = localStorage.getItem('token');
+    const token = useAuthStore.getState().token;
     if (token) {
       config.headers['Authorization'] = `Bearer ${token}`;
     }
@@ -25,45 +25,34 @@ axiosInstance.interceptors.request.use(
   (error) => Promise.reject(error)
 );
 
-// ─── Response: log errors & handle 401 refresh ────────────
+// ─── Response: hydration-aware 401 handler ────────────────
 axiosInstance.interceptors.response.use(
   (response) => response,
+  (error) => {
+    const status = error.response?.status;
+    const url = error.config?.url || '';
+    const isAuthRoute =
+      url.includes('/auth/login') ||
+      url.includes('/auth/register') ||
+      url.includes('/auth/refresh');
 
-  async (error) => {
-    const originalRequest = error.config;
+    if (status === 401 && !isAuthRoute) {
+      const store = useAuthStore.getState();
 
-    // Log every API error so it's always visible in DevTools
-    console.error('❌ [API] Error:', {
-      status: error.response?.status,
-      url: error.config?.url,
-      message: error.response?.data?.message || error.message,
-    });
-
-    // Auto-refresh on 401
-    if (error.response?.status === 401 && !originalRequest._retry) {
-      originalRequest._retry = true;
-      const refreshToken = localStorage.getItem('refreshToken');
-
-      if (refreshToken) {
-        try {
-          const { data } = await axios.post(`${BACKEND_URL}/api/auth/refresh`, { refreshToken });
-          localStorage.setItem('token', data.token);
-          if (data.refreshToken) localStorage.setItem('refreshToken', data.refreshToken);
-          originalRequest.headers['Authorization'] = `Bearer ${data.token}`;
-          return axiosInstance(originalRequest);
-        } catch {
-          // Refresh failed — purge auth and redirect
-          localStorage.removeItem('token');
-          localStorage.removeItem('refreshToken');
-          localStorage.removeItem('auth-store');
-          window.location.href = '/login';
-        }
-      } else {
+      if (store._hasHydrated && store.token) {
+        // Token exists but server rejected it — clear and redirect
+        console.warn('[Auth] Token rejected by server, logging out');
+        store.logout();
         window.location.href = '/login';
+        return new Promise(() => {}); // Swallow error — prevent any toast
+      } else if (store._hasHydrated && !store.token) {
+        // No token at all — redirect silently
+        window.location.href = '/login';
+        return new Promise(() => {}); // Swallow error — prevent any toast
       }
+      // Not hydrated yet — let ProtectedRoute handle it via its own check
     }
 
-    // Always re-throw so callers can handle errors
     return Promise.reject(error);
   }
 );
