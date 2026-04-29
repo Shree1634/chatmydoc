@@ -15,7 +15,11 @@ interface TableViewerProps {
 }
 
 function exportToCSV(table: TableData, index: number) {
-  const csv = [table.headers, ...table.rows].map(r => r.map(c => `"${c}"`).join(',')).join('\n');
+  const headers = table.headers ?? [];
+  const rows = table.rows ?? [];
+  const csv = [headers, ...rows]
+    .map(r => r.map(c => `"${c ?? ''}"`).join(','))
+    .join('\n');
   const a = Object.assign(document.createElement('a'), {
     href: URL.createObjectURL(new Blob([csv], { type: 'text/csv' })),
     download: `table-${index + 1}.csv`,
@@ -28,14 +32,20 @@ export default function TableViewer({ pdfId, initialTables }: TableViewerProps) 
   const [tables, setTables] = useState<TableData[]>(initialTables || []);
   const [isLoading, setIsLoading] = useState(false);
 
-  const fetchTables = async () => {
+  const fetchTables = async (force = false) => {
     setIsLoading(true);
     const toastId = toast.loading('Extracting tables...');
     try {
-      const { data } = await getTablesApi(pdfId);
+      const { data } = await getTablesApi(pdfId, force);
+      console.log('[Tables] API response:', data);
+      console.log('[Tables] Tables array:', data.data?.tables);
       if (data.success) {
-        setTables(data.data.tables || []);
-        toast.success(data.data.tables?.length ? `Found ${data.data.tables.length} table(s)!` : 'No tables found', { id: toastId });
+        const found = data.data.tables || [];
+        setTables(found);
+        toast.success(
+          found.length ? `Found ${found.length} table(s)!` : 'No tables found in this document',
+          { id: toastId }
+        );
       } else toast.error(data.message || 'Failed', { id: toastId });
     } catch (err: any) {
       toast.error(err.response?.data?.message || 'Failed', { id: toastId });
@@ -51,18 +61,31 @@ export default function TableViewer({ pdfId, initialTables }: TableViewerProps) 
           <Table size={17} className="text-blue-400" />
           Extracted Tables
           {tables.length > 0 && (
-            <span className="bg-blue-500/20 text-blue-400 text-xs px-2 py-0.5 rounded-full font-semibold">{tables.length}</span>
+            <span className="bg-blue-500/20 text-blue-400 text-xs px-2 py-0.5 rounded-full font-semibold">
+              {tables.length}
+            </span>
           )}
         </div>
-        <button
-          onClick={fetchTables}
-          disabled={isLoading}
-          className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-[#1e1e2a] border border-[#2a2a3a] text-[#a0a0b8] hover:border-[#3a3a4a] hover:text-[#f0f0ff] transition-all disabled:opacity-50 disabled:cursor-not-allowed"
-        >
-          {isLoading
-            ? <><div className="spinner w-3 h-3" /> Extracting...</>
-            : <><RefreshCw size={12} /> {tables.length ? 'Re-extract' : 'Extract Tables'}</>}
-        </button>
+        <div className="flex gap-2">
+          {tables.length > 0 && (
+            <button
+              onClick={() => fetchTables(true)}
+              disabled={isLoading}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-[#1e1e2a] border border-[#2a2a3a] text-[#606078] hover:border-[#3a3a4a] hover:text-[#f0f0ff] transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              Force Re-extract
+            </button>
+          )}
+          <button
+            onClick={() => fetchTables(false)}
+            disabled={isLoading}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-[#1e1e2a] border border-[#2a2a3a] text-[#a0a0b8] hover:border-[#3a3a4a] hover:text-[#f0f0ff] transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            {isLoading
+              ? <><div className="spinner w-3 h-3" /> Extracting...</>
+              : <><RefreshCw size={12} /> {tables.length ? 'Re-extract' : 'Extract Tables'}</>}
+          </button>
+        </div>
       </div>
 
       <div className="flex-1 overflow-y-auto flex flex-col gap-4">
@@ -88,21 +111,40 @@ export default function TableViewer({ pdfId, initialTables }: TableViewerProps) 
                 <table className="w-full text-xs border-collapse">
                   <thead>
                     <tr>
-                      {table.headers.map((h, j) => (
-                        <th key={j} className="bg-purple-500/10 text-purple-400 px-4 py-2 text-left font-semibold whitespace-nowrap border-b border-[#2a2a3a]">
-                          {h}
-                        </th>
-                      ))}
+                      {(table.headers ?? []).length > 0
+                        ? (table.headers ?? []).map((h, j) => (
+                            <th
+                              key={j}
+                              className="bg-purple-500/10 text-purple-400 px-4 py-2 text-left font-semibold whitespace-nowrap border-b border-[#2a2a3a]"
+                            >
+                              {h || '—'}
+                            </th>
+                          ))
+                        : (
+                            <th className="bg-purple-500/10 text-purple-400 px-4 py-2 text-left font-semibold border-b border-[#2a2a3a]">
+                              No headers
+                            </th>
+                          )}
                     </tr>
                   </thead>
                   <tbody>
-                    {table.rows.map((row, r) => (
-                      <tr key={r} className="border-b border-[#2a2a3a] last:border-0 hover:bg-[#1e1e2a] transition-colors">
-                        {row.map((cell, c) => (
-                          <td key={c} className="px-4 py-2 text-[#a0a0b8]">{cell}</td>
-                        ))}
-                      </tr>
-                    ))}
+                    {(table.rows ?? []).length > 0
+                      ? (table.rows ?? []).map((row, r) => (
+                          <tr key={r} className="border-b border-[#2a2a3a] last:border-0 hover:bg-[#1e1e2a] transition-colors">
+                            {(row ?? []).map((cell, c) => (
+                              <td key={c} className="px-4 py-2 text-[#a0a0b8]">
+                                {cell ?? '—'}
+                              </td>
+                            ))}
+                          </tr>
+                        ))
+                      : (
+                          <tr>
+                            <td className="px-4 py-3 text-[#606078] text-center" colSpan={Math.max(1, (table.headers ?? []).length)}>
+                              No rows
+                            </td>
+                          </tr>
+                        )}
                   </tbody>
                 </table>
               </div>

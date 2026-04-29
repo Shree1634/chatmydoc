@@ -153,72 +153,82 @@ export const extractTablesFromPDF = async (pdfUrl, textContent = null) => {
 };
 
 /**
- * extractImagesFromPDF — extracts embedded images from PDF binary via pdf-parse page render,
- * uploads each to Cloudinary, and returns an array of Cloudinary URLs.
- * 
- * Note: pdf-parse itself doesn't expose embedded images directly. We use a page-level
- * approach: render each page as canvas data URL via pdf-parse's render_page option.
- * This effectively renders each page as an image and uploads it.
- * 
- * @param {string} pdfUrl - URL of the PDF
- * @param {string} pdfId - PDF document ID (used for naming)
- * @returns {string[]} Array of Cloudinary image URLs
+ * extractImagesFromPDF — generates Cloudinary page image URLs for each PDF page.
+ *
+ * The PDF is stored on Cloudinary as resource_type: 'raw'.
+ * Cloudinary can serve individual pages as images using the `pg_N` transformation
+ * on an image-type URL pointing at the same public_id.
+ *
+ * Correct URL format:
+ *   https://res.cloudinary.com/{cloud}/image/upload/pg_{n}/{public_id}.jpg
+ *
+ * @param {string} pdfUrl - Cloudinary raw URL of the PDF
+ * @param {string} pdfId  - PDF document ID (for logging)
+ * @returns {string[]} Array of image URLs (one per page, up to 5)
  */
 export const extractImagesFromPDF = async (pdfUrl, pdfId) => {
-    console.log('[extractImagesFromPDF] Starting image extraction for PDF:', pdfId);
+    console.log('[extractImagesFromPDF] Starting for PDF:', pdfId);
+    console.log('[extractImagesFromPDF] Source URL:', pdfUrl);
 
     try {
-        const response = await axios.get(pdfUrl, { responseType: 'arraybuffer' });
-        const buffer = Buffer.from(response.data);
-
-        // Parse PDF to get page count
-        const data = await pdfParse(buffer, {
-            // Don't render: just count pages
-            pagerender: () => ''
-        });
-
-        const numPages = data.numpages || 0;
-        console.log(`[extractImagesFromPDF] PDF has ${numPages} pages`);
-
-        if (numPages === 0) return [];
-
-        // For actual image extraction we would need pdfjs-dist with canvas.
-        // Here we render at most 5 pages to Cloudinary as preview images
-        // using the Cloudinary PDF-to-image transformation feature.
-        const imageUrls = [];
-
-        for (let pageNum = 1; pageNum <= Math.min(numPages, 5); pageNum++) {
-            try {
-                // Cloudinary supports PDF page extraction via transformation
-                // e.g., appending /pg_N to a raw PDF public_id
-                // We derive the public_id from the URL
-                const urlParts = pdfUrl.split('/');
-                const uploadIndex = urlParts.indexOf('upload');
-
-                if (uploadIndex !== -1) {
-                    const publicIdWithExt = urlParts.slice(uploadIndex + 1).join('/');
-                    const publicId = publicIdWithExt.replace(/\.[^/.]+$/, ''); // remove extension
-
-                    // Use Cloudinary's PDF page image transformation
-                    const imageUrl = cloudinary.url(publicId, {
-                        resource_type: 'image',
-                        format: 'jpg',
-                        page: pageNum,
-                        transformation: [{ width: 800, crop: 'limit' }]
-                    });
-
-                    imageUrls.push(imageUrl);
-                    console.log(`[extractImagesFromPDF] Generated URL for page ${pageNum}: ${imageUrl}`);
-                }
-            } catch (pageErr) {
-                console.warn(`[extractImagesFromPDF] Failed to process page ${pageNum}:`, pageErr.message);
-            }
+        const cloudName = process.env.CLOUDINARY_CLOUD_NAME;
+        if (!cloudName) {
+            console.error('[extractImagesFromPDF] CLOUDINARY_CLOUD_NAME not set');
+            return [];
         }
 
-        console.log(`[extractImagesFromPDF] Extracted ${imageUrls.length} page images`);
+        // ── Parse the Cloudinary URL to extract the public_id ──
+        // Raw upload URLs look like:
+        //   https://res.cloudinary.com/{cloud}/raw/upload/v1234567/{public_id}.pdf
+        // We need just {public_id} (without version, without extension).
+        const urlParts = pdfUrl.split('/');
+        const uploadIndex = urlParts.findIndex(p => p === 'upload');
+
+        if (uploadIndex === -1) {
+            console.warn('[extractImagesFromPDF] Not a Cloudinary URL, skipping:', pdfUrl);
+            return [];
+        }
+
+        // Everything after "upload/"
+        let afterUpload = urlParts.slice(uploadIndex + 1);
+
+        // Strip version segment (starts with 'v' followed by digits, e.g. v1714000000)
+        if (afterUpload[0] && /^v\d+$/.test(afterUpload[0])) {
+            afterUpload = afterUpload.slice(1);
+        }
+
+        // Join remaining parts and remove .pdf extension
+        const publicId = afterUpload.join('/').replace(/\.pdf$/i, '');
+        console.log('[extractImagesFromPDF] Derived public_id:', publicId);
+
+        // ── Get page count without rendering ──
+        let numPages = 5; // default to 5 if we can't determine
+        try {
+            const response = await axios.get(pdfUrl, { responseType: 'arraybuffer' });
+            const buffer = Buffer.from(response.data);
+            const parsed = await pdfParse(buffer, { pagerender: () => '' });
+            numPages = parsed.numpages || 5;
+            console.log('[extractImagesFromPDF] PDF has', numPages, 'pages');
+        } catch (countErr) {
+            console.warn('[extractImagesFromPDF] Could not count pages, defaulting to 5:', countErr.message);
+        }
+
+        // ── Build image URLs using pg_N transformation ──
+        const pagesToRender = Math.min(numPages, 5);
+        const imageUrls = [];
+
+        for (let page = 1; page <= pagesToRender; page++) {
+            // Manual URL: /image/upload/pg_{n}/{public_id}.jpg
+            const imageUrl = `https://res.cloudinary.com/${cloudName}/image/upload/pg_${page}/${publicId}.jpg`;
+            imageUrls.push(imageUrl);
+            console.log(`[extractImagesFromPDF] Page ${page} URL:`, imageUrl);
+        }
+
+        console.log('[extractImagesFromPDF] Generated', imageUrls.length, 'URLs');
         return imageUrls;
     } catch (err) {
         console.error('[extractImagesFromPDF] Error:', err.message);
-        throw err;
+        return []; // Never throw — just return empty
     }
 };
+

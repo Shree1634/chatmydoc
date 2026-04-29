@@ -8,16 +8,66 @@ interface FlowPanelProps {
   pdfId: string;
 }
 
-function parseLines(text: string): Array<{ text: string; type: 'heading' | 'bullet' | 'normal' }> {
+// ─── Inline Markdown Renderer ─────────────────────────────
+const formatInline = (text: string): React.ReactNode[] => {
+  // Capture **bold**, *italic*, `code` spans
+  const regex = /(\*\*[^*]+\*\*|`[^`]+`|\*[^*]+\*)/g;
+  const parts = text.split(regex);
+
+  return parts.map((part, i) => {
+    if (part.startsWith('**') && part.endsWith('**')) {
+      return (
+        <strong key={i} className="font-semibold text-white">
+          {part.slice(2, -2)}
+        </strong>
+      );
+    }
+    if (part.startsWith('*') && part.endsWith('*') && !part.startsWith('**')) {
+      return (
+        <em key={i} className="italic text-[#c0c0d8]">
+          {part.slice(1, -1)}
+        </em>
+      );
+    }
+    if (part.startsWith('`') && part.endsWith('`')) {
+      return (
+        <code key={i} className="bg-black/40 px-1 rounded text-xs font-mono text-green-400">
+          {part.slice(1, -1)}
+        </code>
+      );
+    }
+    return <span key={i}>{part}</span>;
+  });
+};
+
+// ─── Line Parser ──────────────────────────────────────────
+function parseLines(text: string): Array<{ nodes: React.ReactNode[]; type: 'heading' | 'bullet' | 'normal' }> {
   return text
     .split('\n')
     .map(l => l.trim())
     .filter(l => l.length > 0)
     .map(l => {
-      const isHeading = /^#{1,4}\s/.test(l) || /^\d+\.\s/.test(l);
-      const isBullet = /^[-*•]\s/.test(l);
-      const clean = l.replace(/^#{1,4}\s/, '').replace(/^[-*•]\s/, '').replace(/^\d+\.\s/, '');
-      return { text: clean, type: isHeading ? 'bullet' : isBullet ? 'bullet' : 'normal' };
+      // Markdown headings: #, ##, ###, ####
+      if (/^#{1,4}\s/.test(l)) {
+        const clean = l.replace(/^#{1,4}\s/, '');
+        return { nodes: formatInline(clean), type: 'heading' as const };
+      }
+      // Numbered list: "1. ", "2. " etc.
+      if (/^\d+\.\s/.test(l)) {
+        const clean = l.replace(/^\d+\.\s/, '');
+        return { nodes: formatInline(clean), type: 'heading' as const };
+      }
+      // Bullet: "- " or "* " or "• "
+      if (/^[-*•]\s/.test(l)) {
+        const clean = l.replace(/^[-*•]\s/, '');
+        return { nodes: formatInline(clean), type: 'bullet' as const };
+      }
+      // Lines starting with **Text:** pattern — AI uses these as section headers
+      if (/^\*\*[^*]+\*\*/.test(l)) {
+        return { nodes: formatInline(l), type: 'heading' as const };
+      }
+      // Normal line
+      return { nodes: formatInline(l), type: 'normal' as const };
     });
 }
 
@@ -77,7 +127,7 @@ export default function FlowPanel({ pdfId }: FlowPanelProps) {
                 `}
               >
                 {item.type === 'bullet' && <ChevronRight size={13} className="text-purple-400 flex-shrink-0 mt-0.5" />}
-                {item.text}
+                <span className="flex flex-wrap items-baseline gap-x-0.5">{item.nodes}</span>
               </motion.div>
             ))}
           </AnimatePresence>

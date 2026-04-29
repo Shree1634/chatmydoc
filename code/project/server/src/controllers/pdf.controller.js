@@ -248,8 +248,9 @@ export const extractTables = async (req, res) => {
         const pdf = await PDF.findOne({ _id: req.params.id, user: req.user._id }).select('+textContent');
         if (!pdf) return res.status(404).json({ success: false, message: 'PDF not found' });
 
-        // Return cached tables if already extracted
-        if (pdf.tables && pdf.tables.length > 0) {
+        // Return cached tables unless force refresh requested
+        if (!req.query.force && pdf.tables && pdf.tables.length > 0) {
+            console.log('[extractTables] Returning cached tables:', pdf.tables.length);
             return res.status(200).json({ success: true, data: { tables: pdf.tables, source: 'cache' } });
         }
 
@@ -286,6 +287,11 @@ ${context}`;
             }
         }
 
+        console.log('[extractTables] Tables found:', tables.length);
+        if (tables.length > 0) {
+            console.log('[extractTables] Sample:', JSON.stringify(tables[0]).substring(0, 150));
+        }
+
         // Cache the result
         pdf.tables = tables;
         await pdf.save();
@@ -306,8 +312,9 @@ export const extractImages = async (req, res) => {
         const pdf = await PDF.findOne({ _id: req.params.id, user: req.user._id });
         if (!pdf) return res.status(404).json({ success: false, message: 'PDF not found' });
 
-        // Return cached images if already extracted
-        if (pdf.images && pdf.images.length > 0) {
+        // Return cached images unless force refresh requested
+        if (!req.query.force && pdf.images && pdf.images.length > 0) {
+            console.log('[extractImages] Returning cached images:', pdf.images.length);
             return res.status(200).json({ success: true, data: { images: pdf.images, source: 'cache' } });
         }
 

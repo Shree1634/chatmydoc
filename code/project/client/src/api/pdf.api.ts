@@ -23,8 +23,8 @@ export const askQuestionApi = (id: string, question: string) =>
 export const getFlowApi = (id: string) =>
   axiosInstance.get(`/api/pdfs/${id}/flow`)
 
-export const getTablesApi = (id: string) =>
-  axiosInstance.get(`/api/pdfs/${id}/tables`)
+export const getTablesApi = (id: string, force = false) =>
+  axiosInstance.get(`/api/pdfs/${id}/tables${force ? '?force=true' : ''}`)
 
-export const getImagesApi = (id: string) =>
-  axiosInstance.get(`/api/pdfs/${id}/images`)
+export const getImagesApi = (id: string, force = false) =>
+  axiosInstance.get(`/api/pdfs/${id}/images${force ? '?force=true' : ''}`)

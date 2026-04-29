@@ -13,14 +13,19 @@ export default function ImageGallery({ pdfId }: ImageGalleryProps) {
   const [isLoading, setIsLoading] = useState(false);
   const [lightboxUrl, setLightboxUrl] = useState<string | null>(null);
 
-  const extractImages = async () => {
+  const extractImages = async (force = false) => {
     setIsLoading(true);
     const toastId = toast.loading('Finding and extracting images...');
     try {
-      const { data } = await getImagesApi(pdfId);
+      const { data } = await getImagesApi(pdfId, force);
       if (data.success) {
         setImages(data.data.images || []);
-        toast.success(data.data.images?.length ? `Found ${data.data.images.length} image(s)!` : 'No images found', { id: toastId });
+        toast.success(
+          data.data.images?.length
+            ? `Found ${data.data.images.length} image(s)!`
+            : 'No images found',
+          { id: toastId }
+        );
       } else toast.error(data.message || 'Failed', { id: toastId });
     } catch (err: any) {
       toast.error(err.response?.data?.message || 'Failed', { id: toastId });
@@ -30,9 +35,17 @@ export default function ImageGallery({ pdfId }: ImageGalleryProps) {
   };
 
   const downloadImage = async (url: string, i: number) => {
-    const blob = await (await fetch(url)).blob();
-    const a = Object.assign(document.createElement('a'), { href: URL.createObjectURL(blob), download: `page-${i + 1}.jpg` });
-    a.click(); URL.revokeObjectURL(a.href);
+    try {
+      const blob = await (await fetch(url)).blob();
+      const a = Object.assign(document.createElement('a'), {
+        href: URL.createObjectURL(blob),
+        download: `page-${i + 1}.jpg`,
+      });
+      a.click();
+      URL.revokeObjectURL(a.href);
+    } catch {
+      toast.error('Failed to download image');
+    }
   };
 
   return (
@@ -42,18 +55,31 @@ export default function ImageGallery({ pdfId }: ImageGalleryProps) {
           <Image size={17} className="text-purple-400" />
           Page Images
           {images.length > 0 && (
-            <span className="bg-purple-500/20 text-purple-400 text-xs px-2 py-0.5 rounded-full font-semibold">{images.length}</span>
+            <span className="bg-purple-500/20 text-purple-400 text-xs px-2 py-0.5 rounded-full font-semibold">
+              {images.length}
+            </span>
           )}
         </div>
-        <button
-          onClick={extractImages}
-          disabled={isLoading}
-          className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-[#1e1e2a] border border-[#2a2a3a] text-[#a0a0b8] hover:border-[#3a3a4a] hover:text-[#f0f0ff] transition-all disabled:opacity-50 disabled:cursor-not-allowed"
-        >
-          {isLoading
-            ? <><div className="spinner w-3 h-3" /> Extracting...</>
-            : <><RefreshCw size={12} /> {images.length ? 'Re-extract' : 'Extract Images'}</>}
-        </button>
+        <div className="flex gap-2">
+          {images.length > 0 && (
+            <button
+              onClick={() => extractImages(true)}
+              disabled={isLoading}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-[#1e1e2a] border border-[#2a2a3a] text-[#606078] hover:border-[#3a3a4a] hover:text-[#f0f0ff] transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              Force Re-extract
+            </button>
+          )}
+          <button
+            onClick={() => extractImages(false)}
+            disabled={isLoading}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-[#1e1e2a] border border-[#2a2a3a] text-[#a0a0b8] hover:border-[#3a3a4a] hover:text-[#f0f0ff] transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            {isLoading
+              ? <><div className="spinner w-3 h-3" /> Extracting...</>
+              : <><RefreshCw size={12} /> {images.length ? 'Re-extract' : 'Extract Images'}</>}
+          </button>
+        </div>
       </div>
 
       <div className="flex-1 overflow-y-auto">
@@ -72,6 +98,11 @@ export default function ImageGallery({ pdfId }: ImageGalleryProps) {
                   src={url}
                   alt={`Page ${i + 1}`}
                   className="w-full h-full object-cover transition-transform duration-200 group-hover:scale-105"
+                  onError={(e) => {
+                    // Hide the entire card if image fails to load
+                    const card = (e.target as HTMLImageElement).closest('.group') as HTMLElement | null;
+                    if (card) card.style.display = 'none';
+                  }}
                 />
                 <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity flex flex-col justify-end p-2.5">
                   <span className="text-xs font-semibold text-white/80 mb-1.5">Page {i + 1}</span>
