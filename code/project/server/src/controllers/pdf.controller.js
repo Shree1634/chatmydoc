@@ -7,30 +7,56 @@ import User from '../models/user.model.js';
 import Chat from '../models/chat.model.js';
 import { extractTextFromPDF, cleanText, smartTruncate, extractTablesFromPDF, extractImagesFromPDF } from '../utils/pdfPreprocessor.js';
 
-// ─── Initialize Gemini AI (Lazy Load) ──────────────────────────────────
-const getModel = () => {
-  const apiKey = process.env.GEMINI_API_KEY;
-  if (!apiKey) throw new Error('GEMINI_API_KEY missing in .env');
-  const genAI = new GoogleGenerativeAI(apiKey);
-  return genAI.getGenerativeModel({ model: 'gemma-3-4b-it' });
-};
+// ─── Gemini multi-model fallback ───────────────────────────────────────────
+// gemini-2.5-flash confirmed working. Others are fallbacks in priority order.
+const MODELS_TO_TRY = [
+  'gemini-2.5-flash',
+  'gemini-2.0-flash',
+  'gemini-2.0-flash-lite',
+  'gemini-2.5-flash-lite',
+  'gemini-flash-latest',
+];
 
 const callGeminiWithRetry = async (prompt, retries = 3) => {
-  for (let i = 0; i < retries; i++) {
-    try {
-      const model = getModel();
-      const result = await model.generateContent(prompt)
-      return result.response.text()
-    } catch (err) {
-      if (err.message.includes('503') && i < retries - 1) {
-        console.log(`[Gemini] Retrying in ${(i+1)*2}s...`)
-        await new Promise(r => setTimeout(r, (i+1) * 2000))
-        continue
+  const apiKey = process.env.GEMINI_API_KEY;
+  if (!apiKey) throw new Error('GEMINI_API_KEY not set in .env');
+
+  const genAI = new GoogleGenerativeAI(apiKey);
+
+  for (const modelName of MODELS_TO_TRY) {
+    for (let i = 0; i < retries; i++) {
+      try {
+        const model = genAI.getGenerativeModel({ model: modelName });
+        const result = await model.generateContent(prompt);
+        const text = result.response.text();
+        console.log(`[Gemini] Success with model: ${modelName}`);
+        return text;
+      } catch (err) {
+        const msg = err.message;
+
+        // Skip this model entirely on 404 / 403 / not found
+        if (msg.includes('404') || msg.includes('403') || msg.includes('not found')) {
+          console.log(`[Gemini] Model ${modelName} not available, trying next`);
+          break;
+        }
+
+        // Retry on rate-limit or server error
+        if ((msg.includes('429') || msg.includes('503') || msg.includes('500')) && i < retries - 1) {
+          const delay = (i + 1) * 3000;
+          console.log(`[Gemini] ${modelName} rate-limited, retry in ${delay / 1000}s (attempt ${i + 1}/${retries})`);
+          await new Promise(r => setTimeout(r, delay));
+          continue;
+        }
+
+        // Any other error — log and try next model
+        console.log(`[Gemini] ${modelName} failed: ${msg.substring(0, 80)}`);
+        break;
       }
-      throw err
     }
   }
-}
+
+  throw new Error('All AI models unavailable. Please check your Gemini API key.');
+};
 
 // ─── Upload PDF ───────────────────────────────────────────────────────────────
 export const uploadPDF = async (req, res) => {
