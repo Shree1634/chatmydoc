@@ -155,12 +155,12 @@ export const extractTablesFromPDF = async (pdfUrl, textContent = null) => {
 /**
  * extractImagesFromPDF — generates Cloudinary page image URLs for each PDF page.
  *
- * The PDF is stored on Cloudinary as resource_type: 'raw'.
- * Cloudinary can serve individual pages as images using the `pg_N` transformation
- * on an image-type URL pointing at the same public_id.
+ * PDFs are stored on Cloudinary as resource_type:'raw'. To render pages as images
+ * Cloudinary requires the URL to use /image/upload/ (not /raw/upload/) and the
+ * public_id must INCLUDE the .pdf extension so Cloudinary knows the source format.
  *
  * Correct URL format:
- *   https://res.cloudinary.com/{cloud}/image/upload/pg_{n}/{public_id}.jpg
+ *   https://res.cloudinary.com/{cloud}/image/upload/pg_{n}/{public_id}.pdf.jpg
  *
  * @param {string} pdfUrl - Cloudinary raw URL of the PDF
  * @param {string} pdfId  - PDF document ID (for logging)
@@ -180,7 +180,7 @@ export const extractImagesFromPDF = async (pdfUrl, pdfId) => {
         // ── Parse the Cloudinary URL to extract the public_id ──
         // Raw upload URLs look like:
         //   https://res.cloudinary.com/{cloud}/raw/upload/v1234567/{public_id}.pdf
-        // We need just {public_id} (without version, without extension).
+        // We need the full public_id INCLUDING the .pdf extension.
         const urlParts = pdfUrl.split('/');
         const uploadIndex = urlParts.findIndex(p => p === 'upload');
 
@@ -197,12 +197,13 @@ export const extractImagesFromPDF = async (pdfUrl, pdfId) => {
             afterUpload = afterUpload.slice(1);
         }
 
-        // Join remaining parts and remove .pdf extension
-        const publicId = afterUpload.join('/').replace(/\.pdf$/i, '');
-        console.log('[extractImagesFromPDF] Derived public_id:', publicId);
+        // Keep the full path including .pdf extension — Cloudinary needs it to
+        // identify the source format when converting raw→image.
+        const publicIdWithExt = afterUpload.join('/');
+        console.log('[extractImagesFromPDF] public_id (with ext):', publicIdWithExt);
 
-        // ── Get page count without rendering ──
-        let numPages = 5; // default to 5 if we can't determine
+        // ── Get page count by downloading and parsing the PDF ──
+        let numPages = 5; // safe default
         try {
             const response = await axios.get(pdfUrl, { responseType: 'arraybuffer' });
             const buffer = Buffer.from(response.data);
@@ -214,12 +215,14 @@ export const extractImagesFromPDF = async (pdfUrl, pdfId) => {
         }
 
         // ── Build image URLs using pg_N transformation ──
+        // Use /image/upload/ path (not /raw/upload/) so Cloudinary applies
+        // image transformations. The pg_N param picks the page number.
+        // Append .jpg so Cloudinary converts and serves as JPEG.
         const pagesToRender = Math.min(numPages, 5);
         const imageUrls = [];
 
         for (let page = 1; page <= pagesToRender; page++) {
-            // Manual URL: /image/upload/pg_{n}/{public_id}.jpg
-            const imageUrl = `https://res.cloudinary.com/${cloudName}/image/upload/pg_${page}/${publicId}.jpg`;
+            const imageUrl = `https://res.cloudinary.com/${cloudName}/image/upload/pg_${page}/${publicIdWithExt}.jpg`;
             imageUrls.push(imageUrl);
             console.log(`[extractImagesFromPDF] Page ${page} URL:`, imageUrl);
         }
@@ -231,4 +234,3 @@ export const extractImagesFromPDF = async (pdfUrl, pdfId) => {
         return []; // Never throw — just return empty
     }
 };
-

@@ -254,7 +254,18 @@ export const generatePDFFlow = async (req, res) => {
         if (!pdf.textContent) return res.status(400).json({ success: false, message: 'No text in PDF' });
 
         const context = smartTruncate(cleanText(pdf.textContent));
-        const prompt = `Generate a structured, step-by-step flow or outline of key concepts from the following text:\n\n${context}`;
+        const prompt = `Analyze the following document and produce a structured outline of its key concepts and flow.
+
+FORMAT RULES (follow exactly):
+- Use numbered steps for main sections: "1. Section Title"
+- Use bullet points for sub-points under each step: "- detail here"
+- Use **bold** for important terms inside bullet points
+- Each numbered step must have at least one bullet point
+- Do NOT write long paragraphs — keep each bullet to one sentence
+- Do NOT add any preamble or conclusion — output the outline only
+
+DOCUMENT:
+${context}`;
 
         const flow = await callGeminiWithRetry(prompt);
 
@@ -280,37 +291,58 @@ export const extractTables = async (req, res) => {
             return res.status(200).json({ success: true, data: { tables: pdf.tables, source: 'cache' } });
         }
 
-        // Extract tables from the PDF URL
+        if (!pdf.textContent) {
+            return res.status(200).json({ success: true, data: { tables: [] } });
+        }
+
+        // Always use AI extraction — the local heuristic (whitespace/pipe detection)
+        // requires raw newline-separated text, but cleanText() collapses all line breaks
+        // so it never detects tables reliably.
         let tables = [];
         try {
-            tables = await extractTablesFromPDF(pdf.url, pdf.textContent);
-        } catch (extractErr) {
-            console.error('[extractTables] Extraction error:', extractErr.message);
-            // Fall back to AI-based table extraction if local extraction fails
-            if (pdf.textContent) {
-                const context = smartTruncate(cleanText(pdf.textContent));
-                const prompt = `Extract all tables from the following text. Return a JSON array where each element is an object with:
-- "headers": array of column header strings
-- "rows": 2D array of cell values
-If no tables exist, return an empty array [].
+            const context = smartTruncate(cleanText(pdf.textContent));
+            const prompt = `Extract all tables from the following document text.
 
-IMPORTANT: Return ONLY valid JSON, no markdown, no explanation.
+Return a JSON array. Each element must be an object with exactly these two keys:
+- "headers": array of strings (the column headers)
+- "rows": 2D array of strings (each inner array is one data row)
 
-Text:
+Rules:
+- If a table has no explicit headers, infer them from context or use "Column 1", "Column 2", etc.
+- Every row array must have the same length as the headers array.
+- If the document contains NO tables at all, return an empty array: []
+- Return ONLY raw JSON. No markdown fences, no explanations, nothing else.
+
+Document text:
 ${context}`;
 
-                const rawResponse = await callGeminiWithRetry(prompt);
-                const responseText = rawResponse.trim();
+            const rawResponse = await callGeminiWithRetry(prompt);
+            const responseText = rawResponse.trim();
 
-                try {
-                    // Strip possible markdown code fences
-                    const jsonStr = responseText.replace(/^```json\n?/, '').replace(/^```\n?/, '').replace(/\n?```$/, '');
-                    tables = JSON.parse(jsonStr);
-                    if (!Array.isArray(tables)) tables = [];
-                } catch {
-                    tables = [];
-                }
-            }
+            // Strip possible markdown code fences
+            const jsonStr = responseText
+                .replace(/^```json\s*/i, '')
+                .replace(/^```\s*/i, '')
+                .replace(/\s*```$/i, '')
+                .trim();
+
+            const parsed = JSON.parse(jsonStr);
+            tables = Array.isArray(parsed) ? parsed : [];
+
+            // Sanitise: ensure every table has headers (string[]) and rows (string[][])
+            tables = tables
+                .filter(t => t && Array.isArray(t.headers) && Array.isArray(t.rows))
+                .map(t => ({
+                    headers: t.headers.map(h => String(h ?? '')),
+                    rows: t.rows.map(r =>
+                        Array.isArray(r) ? r.map(c => String(c ?? '')) : []
+                    ),
+                }))
+                .filter(t => t.headers.length > 0);
+
+        } catch (aiErr) {
+            console.error('[extractTables] AI extraction failed:', aiErr.message);
+            tables = [];
         }
 
         console.log('[extractTables] Tables found:', tables.length);
