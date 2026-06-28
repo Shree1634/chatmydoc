@@ -37,8 +37,6 @@ export default function TableViewer({ pdfId, initialTables }: TableViewerProps) 
     const toastId = toast.loading('Extracting tables...');
     try {
       const { data } = await getTablesApi(pdfId, force);
-      console.log('[Tables] API response:', data);
-      console.log('[Tables] Tables array:', data.data?.tables);
       if (data.success) {
         const found = data.data.tables || [];
         setTables(found);

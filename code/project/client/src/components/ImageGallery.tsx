@@ -128,7 +128,7 @@ export default function ImageGallery({ pdfId }: ImageGalleryProps) {
           <div className="flex flex-col items-center justify-center h-full gap-3 text-center">
             <Image size={40} className="text-[#2a2a3a]" />
             <div>
-              <h3 className="font-semibold text-[#a0a0b8] mb-1">No images extracted yet</h3>
+              <h3 className="font-semibold text-[#a0a0b8] mb-1">No preview available for this document</h3>
               <p className="text-sm text-[#606078]">Click "Extract Images" to render PDF pages as images</p>
             </div>
           </div>
