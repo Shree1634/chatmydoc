@@ -9,6 +9,78 @@ interface SummaryPanelProps {
   initialSummary?: string;
 }
 
+const formatInline = (text: string) => {
+  // Bold: **text** and Inline code: `code`
+  const parts = text.split(/(\*\*[^*]+\*\*|`[^`]+`)/g)
+  return parts.map((part, i) => {
+    if (part.startsWith('**') && part.endsWith('**')) {
+      return (
+        <strong key={i} className="font-semibold text-white">
+          {part.slice(2, -2)}
+        </strong>
+      )
+    }
+    // Inline code: `code`
+    if (part.startsWith('`') && part.endsWith('`')) {
+      return (
+        <code key={i} 
+          className="bg-black/40 px-1 py-0.5 rounded text-xs 
+                     font-mono text-green-400">
+          {part.slice(1, -1)}
+        </code>
+      )
+    }
+    return part
+  })
+}
+
+const formatMarkdown = (text: string) => {
+  // Split into lines and process each
+  const lines = text.split('\n')
+  return lines.map((line, i) => {
+    // Headers
+    if (line.startsWith('### ')) return (
+      <h3 key={i} className="text-sm font-bold text-white mt-2 mb-1">
+        {line.replace('### ', '')}
+      </h3>
+    )
+    if (line.startsWith('## ')) return (
+      <h2 key={i} className="text-base font-bold text-white mt-3 mb-1">
+        {line.replace('## ', '')}
+      </h2>
+    )
+    if (line.startsWith('# ')) return (
+      <h1 key={i} className="text-lg font-bold text-white mt-3 mb-2">
+        {line.replace('# ', '')}
+      </h1>
+    )
+    // Bullet points
+    if (line.startsWith('* ') || line.startsWith('- ')) return (
+      <div key={i} className="flex gap-2 my-0.5">
+        <span className="text-purple-400 flex-shrink-0">•</span>
+        <span>{formatInline(line.replace(/^[*-] /, ''))}</span>
+      </div>
+    )
+    // Numbered list
+    if (/^\d+\. /.test(line)) return (
+      <div key={i} className="flex gap-2 my-0.5">
+        <span className="text-purple-400 flex-shrink-0">
+          {line.match(/^\d+/)?.[0]}.
+        </span>
+        <span>{formatInline(line.replace(/^\d+\. /, ''))}</span>
+      </div>
+    )
+    // Empty line
+    if (line.trim() === '') return <div key={i} className="h-1" />
+    // Normal paragraph
+    return (
+      <p key={i} className="my-0.5 leading-relaxed">
+        {formatInline(line)}
+      </p>
+    )
+  })
+}
+
 export default function SummaryPanel({ pdfId, initialSummary }: SummaryPanelProps) {
   const [summary, setSummary] = useState(initialSummary || '');
   const [isLoading, setIsLoading] = useState(false);
@@ -53,9 +125,11 @@ export default function SummaryPanel({ pdfId, initialSummary }: SummaryPanelProp
         <motion.div
           initial={{ opacity: 0, y: 6 }}
           animate={{ opacity: 1, y: 0 }}
-          className="flex-1 text-sm text-[#a0a0b8] leading-relaxed whitespace-pre-wrap overflow-y-auto"
+          className="flex-1 text-sm text-[#a0a0b8] leading-relaxed overflow-y-auto"
         >
-          {summary}
+          <div className="space-y-0.5">
+            {formatMarkdown(summary)}
+          </div>
         </motion.div>
       ) : (
         <div className="flex flex-col items-center justify-center flex-1 gap-3 text-center">

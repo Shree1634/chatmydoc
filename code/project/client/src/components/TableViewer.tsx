@@ -28,13 +28,38 @@ function exportToCSV(table: TableData, index: number) {
   URL.revokeObjectURL(a.href);
 }
 
+const formatInline = (text: string) => {
+  // Bold: **text** and Inline code: `code`
+  const parts = String(text).split(/(\*\*[^*]+\*\*|`[^`]+`)/g)
+  return parts.map((part, i) => {
+    if (part.startsWith('**') && part.endsWith('**')) {
+      return (
+        <strong key={i} className="font-semibold text-white">
+          {part.slice(2, -2)}
+        </strong>
+      )
+    }
+    // Inline code: `code`
+    if (part.startsWith('`') && part.endsWith('`')) {
+      return (
+        <code key={i} 
+          className="bg-black/40 px-1 py-0.5 rounded text-xs 
+                     font-mono text-green-400">
+          {part.slice(1, -1)}
+        </code>
+      )
+    }
+    return part
+  })
+}
+
 export default function TableViewer({ pdfId, initialTables }: TableViewerProps) {
   const [tables, setTables] = useState<TableData[]>(initialTables || []);
   const [isLoading, setIsLoading] = useState(false);
 
   const fetchTables = async (force = false) => {
     setIsLoading(true);
-    const toastId = toast.loading('Extracting tables...');
+    const toastId = toast.loading('Generating tables...');
     try {
       const { data } = await getTablesApi(pdfId, force);
       if (data.success) {
@@ -57,7 +82,7 @@ export default function TableViewer({ pdfId, initialTables }: TableViewerProps) 
       <div className="flex items-center justify-between pb-4 border-b border-[#2a2a3a]">
         <div className="flex items-center gap-2 font-semibold text-[#f0f0ff]">
           <Table size={17} className="text-blue-400" />
-          Extracted Tables
+          Generated Tables
           {tables.length > 0 && (
             <span className="bg-blue-500/20 text-blue-400 text-xs px-2 py-0.5 rounded-full font-semibold">
               {tables.length}
@@ -71,7 +96,7 @@ export default function TableViewer({ pdfId, initialTables }: TableViewerProps) 
               disabled={isLoading}
               className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-[#1e1e2a] border border-[#2a2a3a] text-[#606078] hover:border-[#3a3a4a] hover:text-[#f0f0ff] transition-all disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              Force Re-extract
+              Force Re-generate
             </button>
           )}
           <button
@@ -80,8 +105,8 @@ export default function TableViewer({ pdfId, initialTables }: TableViewerProps) 
             className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-[#1e1e2a] border border-[#2a2a3a] text-[#a0a0b8] hover:border-[#3a3a4a] hover:text-[#f0f0ff] transition-all disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {isLoading
-              ? <><div className="spinner w-3 h-3" /> Extracting...</>
-              : <><RefreshCw size={12} /> {tables.length ? 'Re-extract' : 'Extract Tables'}</>}
+              ? <><div className="spinner w-3 h-3" /> Generating...</>
+              : <><RefreshCw size={12} /> {tables.length ? 'Re-generate' : 'Generate Tables'}</>}
           </button>
         </div>
       </div>
@@ -115,7 +140,7 @@ export default function TableViewer({ pdfId, initialTables }: TableViewerProps) 
                               key={j}
                               className="bg-purple-500/10 text-purple-400 px-4 py-2 text-left font-semibold whitespace-nowrap border-b border-[#2a2a3a]"
                             >
-                              {h || '—'}
+                              {formatInline(h || '—')}
                             </th>
                           ))
                         : (
@@ -131,7 +156,7 @@ export default function TableViewer({ pdfId, initialTables }: TableViewerProps) 
                           <tr key={r} className="border-b border-[#2a2a3a] last:border-0 hover:bg-[#1e1e2a] transition-colors">
                             {(row ?? []).map((cell, c) => (
                               <td key={c} className="px-4 py-2 text-[#a0a0b8]">
-                                {cell ?? '—'}
+                                {formatInline(cell ?? '—')}
                               </td>
                             ))}
                           </tr>

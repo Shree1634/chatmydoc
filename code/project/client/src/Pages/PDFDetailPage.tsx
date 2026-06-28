@@ -8,16 +8,16 @@ import ChatWindow from '../components/ChatWindow';
 import SummaryPanel from '../components/SummaryPanel';
 import FlowPanel from '../components/FlowPanel';
 import TableViewer from '../components/TableViewer';
-import ImageGallery from '../components/ImageGallery';
+import AnnotationsPanel from '../components/AnnotationsPanel';
 
-type Tab = 'chat' | 'summary' | 'flow' | 'tables' | 'images';
+type Tab = 'chat' | 'summary' | 'flow' | 'tables' | 'annotations';
 
 const TABS: { id: Tab; label: string; icon: React.ElementType }[] = [
   { id: 'chat', label: 'Chat', icon: MessageSquare },
   { id: 'summary', label: 'Summary', icon: Sparkles },
   { id: 'flow', label: 'Flow', icon: GitBranch },
   { id: 'tables', label: 'Tables', icon: Table },
-  { id: 'images', label: 'Images', icon: Image },
+  { id: 'annotations', label: 'Annotations', icon: Sparkles },
 ];
 
 export default function PDFDetailPage() {
@@ -112,7 +112,7 @@ export default function PDFDetailPage() {
           {activeTab === 'summary' && <SummaryPanel pdfId={id!} initialSummary={currentPDF.summary} />}
           {activeTab === 'flow' && <FlowPanel pdfId={id!} />}
           {activeTab === 'tables' && <TableViewer pdfId={id!} initialTables={currentPDF.tables} />}
-          {activeTab === 'images' && <ImageGallery pdfId={id!} initialImages={currentPDF.images} />}
+          {activeTab === 'annotations' && <AnnotationsPanel pdfId={id!} url={currentPDF.url} />}
         </motion.div>
       </div>
     </div>

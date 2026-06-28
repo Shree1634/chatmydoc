@@ -42,8 +42,8 @@ const PDFSchema = new mongoose.Schema(
             }],
             default: []
         },
-        // Extracted image URLs (from Cloudinary)
-        images: {
+        // Annotated PDF sentences
+        annotationSentences: {
             type: [String],
             default: []
         },

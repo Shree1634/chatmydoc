@@ -5,7 +5,7 @@ import { GoogleGenerativeAI } from '@google/generative-ai';
 import PDF from '../models/pdf.model.js';
 import User from '../models/user.model.js';
 import Chat from '../models/chat.model.js';
-import { extractTextFromPDF, cleanText, smartTruncate, extractTablesFromPDF, extractImagesFromPDF } from '../utils/pdfPreprocessor.js';
+import { extractTextFromPDF, cleanText, smartTruncate, extractTablesFromPDF } from '../utils/pdfPreprocessor.js';
 
 // ─── Gemini multi-model fallback ───────────────────────────────────────────
 // gemini-2.5-flash confirmed working. Others are fallbacks in priority order.
@@ -301,20 +301,35 @@ export const extractTables = async (req, res) => {
         let tables = [];
         try {
             const context = smartTruncate(cleanText(pdf.textContent));
-            const prompt = `Extract all tables from the following document text.
+            const prompt = `Analyze the following document text and 
+   identify any tabular or list-like structured data 
+   (schedules, comparisons, itemized lists, data tables, etc).
 
-Return a JSON array. Each element must be an object with exactly these two keys:
-- "headers": array of strings (the column headers)
-- "rows": 2D array of strings (each inner array is one data row)
+   CRITICAL RULES:
+   - Extract EVERY individual item/row exactly as it appears 
+     in the source text. Do NOT group multiple items into 
+     broader categories (e.g. if the text lists "7:00 AM - 
+     Wake up", "7:15 AM - Brush teeth", "7:30 AM - Breakfast" 
+     as separate items, output THREE separate rows, not one 
+     row labeled "Morning").
+   - Preserve exact wording, numbers, and times from the source.
+   - Each distinct fact, time, or item in the source must 
+     become its own row. Do not summarize, abbreviate, or 
+     merge rows for brevity.
+   - Only group rows under a shared header if the source 
+     itself groups them (e.g. table sections), not based 
+     on your own judgment of similarity.
 
-Rules:
-- If a table has no explicit headers, infer them from context or use "Column 1", "Column 2", etc.
-- Every row array must have the same length as the headers array.
-- If the document contains NO tables at all, return an empty array: []
-- Return ONLY raw JSON. No markdown fences, no explanations, nothing else.
+   Return a JSON array where each element is an object with:
+   - "headers": array of column header strings
+   - "rows": 2D array of cell values (one row per individual 
+     item found in the source — be exhaustive, not concise)
+   If no tabular structure exists, return an empty array [].
 
-Document text:
-${context}`;
+   IMPORTANT: Return ONLY valid JSON, no markdown, no explanation.
+
+   Text:
+   ${context}`;
 
             const rawResponse = await callGeminiWithRetry(prompt);
             const responseText = rawResponse.trim();
@@ -361,38 +376,69 @@ ${context}`;
     }
 };
 
-// ─── Extract Images ───────────────────────────────────────────────────────────
-export const extractImages = async (req, res) => {
-    try {
-        if (!req.params.id) return res.status(400).json({ success: false, message: 'PDF ID required' });
-        if (!req.user?._id) return res.status(401).json({ success: false, message: 'Auth required' });
+// ─── Generate Annotations ───────────────────────────────────────────────────────────
+export const generateAnnotations = async (req, res) => {
+  try {
+    if (!req.params.id) return res.status(400).json({ success: false, message: 'PDF ID required' })
+    if (!req.user?._id) return res.status(401).json({ success: false, message: 'Auth required' })
 
-        const pdf = await PDF.findOne({ _id: req.params.id, user: req.user._id });
-        if (!pdf) return res.status(404).json({ success: false, message: 'PDF not found' });
+    const pdf = await PDF.findOne({ _id: req.params.id, user: req.user._id }).select('+textContent')
+    if (!pdf) return res.status(404).json({ success: false, message: 'PDF not found' })
+    if (!pdf.textContent) return res.status(400).json({ success: false, message: 'No text in PDF' })
 
-        // Return cached images unless force refresh requested
-        if (!req.query.force && pdf.images && pdf.images.length > 0) {
-            console.log('[extractImages] Returning cached images:', pdf.images.length);
-            return res.status(200).json({ success: true, data: { images: pdf.images, source: 'cache' } });
-        }
-
-        // Extract images from the PDF URL
-        let imageUrls = [];
-        try {
-            imageUrls = await extractImagesFromPDF(pdf.url, pdf._id.toString());
-        } catch (extractErr) {
-            console.error('[extractImages] Extraction error:', extractErr.message);
-            // Return empty array if extraction fails — images are binary and can't fallback to AI
-            imageUrls = [];
-        }
-
-        // Cache the result
-        pdf.images = imageUrls;
-        await pdf.save();
-
-        res.status(200).json({ success: true, data: { images: imageUrls } });
-    } catch (error) {
-        console.error('[extractImages] Error:', error.message);
-        res.status(500).json({ success: false, message: 'Failed to extract images', error: error.message });
+    if (!req.query.force && pdf.annotationSentences && pdf.annotationSentences.length > 0) {
+      return res.status(200).json({ success: true, data: { sentences: pdf.annotationSentences, source: 'cache' } })
     }
-};
+
+    const context = smartTruncate(cleanText(pdf.textContent))
+    const prompt = `You are analyzing a document to create a study-guide 
+style highlight set. From the following text, identify the 
+MOST IMPORTANT complete sentences and definitions a student or 
+reader should focus on.
+
+STRICT REQUIREMENTS:
+- Each item must be a COMPLETE sentence or definition copied 
+  EXACTLY verbatim from the source text — minimum 8 words long. 
+  Never return a bare word, function name, label, or sentence 
+  fragment shorter than 8 words.
+- Prioritize, in this order: (1) explicit definitions or 
+  explanations of what something IS or DOES, (2) key facts, 
+  numbers, dates, or requirements, (3) conclusions or summary 
+  statements, (4) important warnings or critical steps.
+- Skip purely structural text like headings, bullet labels, 
+  code identifiers, file names, or table headers UNLESS they 
+  are part of a full explanatory sentence.
+- Return between 20 and 40 items if the document has enough 
+  substantive content — be generous, this is meant to help 
+  someone quickly review the whole document, not just a 
+  handful of highlights.
+- If the document is short, return fewer items, but still 
+  prioritize coverage across the whole document rather than 
+  clustering all picks in one section.
+
+Return ONLY a JSON array of exact verbatim strings from the 
+source text. No markdown, no explanation, no numbering.
+
+Text:
+${context}`
+
+    const rawResponse = await callGeminiWithRetry(prompt)
+    let sentences = []
+    try {
+      const jsonStr = rawResponse.trim()
+        .replace(/^```json\n?/, '').replace(/^```\n?/, '').replace(/\n?```$/, '')
+      sentences = JSON.parse(jsonStr)
+      if (!Array.isArray(sentences)) sentences = []
+    } catch {
+      sentences = []
+    }
+
+    pdf.annotationSentences = sentences
+    await pdf.save()
+
+    res.status(200).json({ success: true, data: { sentences } })
+  } catch (error) {
+    console.error('[generateAnnotations] Error:', error.message)
+    res.status(500).json({ success: false, message: 'Failed to generate annotations', error: error.message })
+  }
+}

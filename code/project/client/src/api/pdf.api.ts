@@ -26,5 +26,5 @@ export const getFlowApi = (id: string) =>
 export const getTablesApi = (id: string, force = false) =>
   axiosInstance.get(`/api/pdfs/${id}/tables${force ? '?force=true' : ''}`)
 
-export const getImagesApi = (id: string, force = false) =>
-  axiosInstance.get(`/api/pdfs/${id}/images${force ? '?force=true' : ''}`)
+export const getAnnotationsApi = (id: string, force = false) =>
+  axiosInstance.get(`/api/pdfs/${id}/annotations${force ? '?force=true' : ''}`)
