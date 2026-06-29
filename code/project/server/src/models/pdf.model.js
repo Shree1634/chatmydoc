@@ -47,6 +47,10 @@ const PDFSchema = new mongoose.Schema(
             type: [String],
             default: []
         },
+        pageImages: {
+            type: [String],
+            default: []
+        },
         uploadedAt: {
             type: Date,
             default: Date.now,

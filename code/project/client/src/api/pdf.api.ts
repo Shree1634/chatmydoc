@@ -28,3 +28,6 @@ export const getTablesApi = (id: string, force = false) =>
 
 export const getAnnotationsApi = (id: string, force = false) =>
   axiosInstance.get(`/api/pdfs/${id}/annotations${force ? '?force=true' : ''}`)
+
+export const getPageImagesApi = (id: string, force = false) =>
+  axiosInstance.get(`/api/pdfs/${id}/pages${force ? '?force=true' : ''}`)

@@ -3,6 +3,7 @@ import path from 'path';
 import { createRequire } from 'module';
 import axios from 'axios';
 import { v2 as cloudinary } from 'cloudinary';
+import { pdf } from 'pdf-to-img';
 
 const require = createRequire(import.meta.url);
 const pdfParse = require('pdf-parse');
@@ -151,4 +152,42 @@ export const extractTablesFromPDF = async (pdfUrl, textContent = null) => {
         throw err;
     }
 };
+
+export const renderPDFPages = async (pdfUrl, pdfId, maxPages = 15) => {
+  try {
+    console.log('[renderPages] Downloading PDF...')
+    const response = await axios.get(pdfUrl, { responseType: 'arraybuffer' })
+    const pdfBuffer = Buffer.from(response.data)
+
+    console.log('[renderPages] Rendering pages locally...')
+    const document = await pdf(pdfBuffer, { scale: 1.5 })
+
+    const pageUrls = []
+    let pageNum = 0
+
+    for await (const pngBuffer of document) {
+      pageNum++
+      if (pageNum > maxPages) break
+
+      const base64 = Buffer.from(pngBuffer).toString('base64')
+      const uploadResult = await cloudinary.uploader.upload(
+        `data:image/png;base64,${base64}`,
+        {
+          resource_type: 'image',
+          folder: 'chatmydoc/pages',
+          public_id: `page_${pdfId}_${pageNum}`,
+          overwrite: true
+        }
+      )
+      pageUrls.push(uploadResult.secure_url)
+      console.log(`[renderPages] Page ${pageNum} uploaded`)
+    }
+
+    console.log(`[renderPages] Done — ${pageUrls.length} page(s)`)
+    return pageUrls
+  } catch (err) {
+    console.error('[renderPages] Failed:', err.message)
+    return []
+  }
+}
 

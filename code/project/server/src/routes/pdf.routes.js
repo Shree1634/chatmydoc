@@ -10,7 +10,8 @@ import {
   getUserPDFs,
   askQuestion,
   extractTables,
-  generateAnnotations
+  generateAnnotations,
+  getPageImages
 } from '../controllers/pdf.controller.js'
 import authMiddleware from '../middleware/auth.js'
 
@@ -41,5 +42,6 @@ router.post('/:id/ask', askQuestion)
 router.get('/:id/flow', generatePDFFlow)
 router.get('/:id/tables', extractTables)
 router.get('/:id/annotations', generateAnnotations)
+router.get('/:id/pages', getPageImages)
 
 export default router

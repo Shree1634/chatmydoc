@@ -5,7 +5,7 @@ import { GoogleGenerativeAI } from '@google/generative-ai';
 import PDF from '../models/pdf.model.js';
 import User from '../models/user.model.js';
 import Chat from '../models/chat.model.js';
-import { extractTextFromPDF, cleanText, smartTruncate, extractTablesFromPDF } from '../utils/pdfPreprocessor.js';
+import { extractTextFromPDF, cleanText, smartTruncate, extractTablesFromPDF, renderPDFPages } from '../utils/pdfPreprocessor.js';
 
 // ─── Gemini multi-model fallback ───────────────────────────────────────────
 // gemini-2.5-flash confirmed working. Others are fallbacks in priority order.
@@ -442,3 +442,29 @@ ${context}`
     res.status(500).json({ success: false, message: 'Failed to generate annotations', error: error.message })
   }
 }
+
+// --- Get Page Images --------------------------------------------------------
+export const getPageImages = async (req, res) => {
+  try {
+    if (!req.params.id) return res.status(400).json({ success: false, message: 'PDF ID required' })
+    if (!req.user?._id) return res.status(401).json({ success: false, message: 'Auth required' })
+
+    const pdf = await PDF.findOne({ _id: req.params.id, user: req.user._id })
+    if (!pdf) return res.status(404).json({ success: false, message: 'PDF not found' })
+
+    if (!req.query.force && pdf.pageImages && pdf.pageImages.length > 0) {
+      return res.status(200).json({ success: true, data: { pages: pdf.pageImages, source: 'cache' } })
+    }
+
+    const pageUrls = await renderPDFPages(pdf.url, pdf._id.toString())
+
+    pdf.pageImages = pageUrls
+    await pdf.save()
+
+    res.status(200).json({ success: true, data: { pages: pageUrls } })
+  } catch (error) {
+    console.error('[getPageImages] Error:', error.message)
+    res.status(500).json({ success: false, message: 'Failed to render pages', error: error.message })
+  }
+}
+
